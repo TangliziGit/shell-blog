@@ -1,0 +1,23 @@
+# render <template name>
+name="template/$1.html"
+content="$(cat $name)"
+for key in `grep -oP "(?<=##)\w+(?=##)" $name`; do
+    value="$(sed "s/\//\\\\\//g" post/$key.html)"
+    value="$(printf "$value" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
+    content="$(printf "$content" | sed "s/##$key##/$value/g")"
+done
+export IFS=$'\n'
+for key in `grep -oP "(?<={{)[^}]*(?=}})" $name`; do
+    value="$(eval "${key}" | tr '\n' '|' | sed "s/.$//g")"
+
+    value="$(printf "$value" | sed "s/\//\\\\\//g")"
+    value="$(printf "$value" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
+    key="$(printf "$key" | sed "s/\//\\\\\//g")"
+    key="$(printf "$key" | sed "s/\*/\\\\*/g")"
+    key="$(printf "$key" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
+    # echo "s/{{$key}}/$value/g"
+    content="$(printf "$content" | sed "s/{{$key}}/$value/g")"
+done
+unset IFS
+
+util/build 200 '' "$content"

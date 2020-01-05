@@ -1,0 +1,2 @@
+# redirect <uri>
+../util/build 302 "Location: $1\r\n" ""

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Index</title>
+</head>
+<body>
+    <h1>Index</h1>
+
+    <ol id='list'></ol>
+
+    <script>
+        let posts = `{{ls -1 post/*.md | sed "s/post//g"}}`.split('|');
+
+        for (let elem of posts) {
+            let li = document.createElement("li");
+            let link = document.createElement("a");
+            link.innerText = elem;
+            link.href = "/posts.sh?name=" + elem.substr(1);
+            li.appendChild(link);
+            document.querySelector("#list").appendChild(li);
+        }
+    </script>
+</body>
+</html>

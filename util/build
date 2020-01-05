@@ -1,0 +1,15 @@
+#!/bin/bash
+# build <status code> <header> <content>
+resp="Content-Type: text/html\r\nX-Powered-By: shell-blog\r\n"
+if [ "$2" != "" ]; then 
+    resp="$(printf "%s%s\r\n" "$resp" "$2")"
+fi
+
+if [ "$3" != "" ]; then
+    resp="$(printf "%sContent-Length: %d\r\n" "$resp" "$(echo -n "$3" | wc -c)" )"
+    resp="${resp}\r\n\r\n$3"
+else
+    resp="$resp\r\n"
+fi
+
+printf "$resp"
