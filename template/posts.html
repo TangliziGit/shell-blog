@@ -15,9 +15,10 @@
 
     <script>
         let filename = new URL(window.location).searchParams.get("name");
+        let name = filename.split('_').join(' ')
         
-        document.title = "posts - " + filename;
-        document.querySelector('#title').innerHTML = filename;
+        document.title = "posts - " + name;
+        document.querySelector('#title').innerHTML = name;
         fetch("/post/" + filename).then(resp => resp.text()).then(resp => {
             let md = window.markdownit({html: true, linkify: true, typographer: true});
             let result = md.render(resp);

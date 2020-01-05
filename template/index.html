@@ -16,7 +16,7 @@
         for (let elem of posts) {
             let li = document.createElement("li");
             let link = document.createElement("a");
-            link.innerText = elem;
+            link.innerText = elem.split('_').join(' ');
             link.href = "/posts.sh?name=" + elem.substr(1);
             li.appendChild(link);
             document.querySelector("#list").appendChild(li);
