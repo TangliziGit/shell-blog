@@ -6,6 +6,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/10.0.0/markdown-it.min.js"></script>
 </head>
 <body>
+    <h1 id="title" style="text-align: center"></h1>
+    <hr>
+
     <div id="content">
     </div>
 
@@ -13,8 +16,9 @@
         let filename = new URL(window.location).searchParams.get("name");
         
         document.title = "posts - " + filename;
+        document.querySelector('#title').innerHTML = filename;
         fetch("/post/" + filename).then(resp => resp.text()).then(resp => {
-            let md = window.markdownit();
+            let md = window.markdownit({html: true, linkify: true, typographer: true});
             let result = md.render(resp);
 
             document.querySelector("#content").innerHTML = result;
