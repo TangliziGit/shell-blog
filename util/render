@@ -8,7 +8,7 @@ for key in `grep -oP "(?<=##)\w+(?=##)" $name`; do
 done
 export IFS=$'\n'
 for key in `grep -oP "(?<={{)[^}]*(?=}})" $name`; do
-    value="$(eval "${key}" | tr '\n' '|' | sed "s/.$//g")"
+    value="$(eval "${key}" | tr '\n' '\a' | sed "s/\a/|||/g" |  sed "s/|||$//g")"
 
     value="$(printf "$value" | sed "s/\//\\\\\//g")"
     value="$(printf "$value" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
