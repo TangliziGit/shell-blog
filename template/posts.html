@@ -3,15 +3,14 @@
 <head>
     <title>posts</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/highlight.js/9.1.0/styles/github.min.css">
+    <link rel="stylesheet" href="/static/github-markdown.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/10.0.0/markdown-it.min.js"></script>
 </head>
 <body>
     <h1 id="title" style="text-align: center"></h1>
     <hr>
 
-    <div id="content">
-    </div>
+    <article id="content" class="markdown-body"></article>
 
     <script>
         let filename = new URL(window.location).searchParams.get("name");

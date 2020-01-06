@@ -2,7 +2,7 @@
 
 A simple static blog web app based on `nginx` and `shell-scripts`.
 
-demo: <http://39.106.185.26/index.sh>
+<http://39.106.185.26/index.sh>
 
 
 ## Deploy & Run
