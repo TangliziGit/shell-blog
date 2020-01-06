@@ -11,7 +11,7 @@
     <ol id='list'></ol>
 
     <script>
-        let posts = `{{ls -1t post/*.md | sed "s/post//g"}}`.split('|||');
+        let posts = `{{ls -1r post/*.md | sed "s/post//g"}}`.split('|||');
 
         for (let elem of posts) {
             let li = document.createElement("li");
