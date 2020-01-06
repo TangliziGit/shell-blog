@@ -21,9 +21,9 @@ crontab -e
 2. Commit it and make a pr, and `github actions` will run `CI` to check your file format.
     If you do not pass the `CI`, you will receive a email with failure information.
 3. Merge it.
-4. Trigger your server to accept the new content, via `git pull`.
+4. Wait an hour or directly trigger your server to accept the new content, via `git pull`.
 
-Or, you can simply write new file in `master` and trigger server to pull.
+Or, you can **simply write new file in `master` using github editor** and wait server to pull.
 
 The `CI` process will be run too.
 
