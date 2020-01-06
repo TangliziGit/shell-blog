@@ -9,5 +9,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Check and modify filename in the correct date format.
+    - name: Check if only markdown files exist.
+      run: ci/type.sh
+    - name: Check if filename in the correct date format.
       run: ci/rename.sh
