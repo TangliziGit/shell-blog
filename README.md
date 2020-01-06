@@ -11,6 +11,8 @@ A simple static blog web app based on `nginx` and `shell-scripts`.
 cp nginx.conf /etc/nginx/nginx.conf
 systemctl start nginx
 fcgiwrap -s unix:/var/run/fcgiwrap.sock
+crontab -e
+# append a line to enable sync hourly: `0 * * * * bash /your/path/shell-blog/util/daemon.sh`
 ```
 
 ## Post & modify file steps
