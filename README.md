@@ -13,6 +13,18 @@ systemctl start nginx
 fcgiwrap -s unix:/var/run/fcgiwrap.sock
 ```
 
+## Post & modify file steps
+
+1. Write/modify your markdown file in `edit` branch, via local or github editor.
+2. Commit it and make a pr, and `github actions` will run `CI` to check your file format.
+    If you do not pass the `CI`, you will receive a email with failure information.
+3. Merge it.
+4. Trigger your server to accept the new content, via `git pull`.
+
+Or, you can simply write new file in `master` and trigger server to pull.
+
+The `CI` process will be run too.
+
 
 ## License
 
