@@ -12,7 +12,8 @@ cp nginx.conf /etc/nginx/nginx.conf
 systemctl start nginx
 fcgiwrap -s unix:/var/run/fcgiwrap.sock
 crontab -e
-# append a line to enable sync hourly: `0 * * * * bash /your/path/shell-blog/util/daemon.sh`
+# append a line to enable sync hourly: 
+# 0 * * * * bash /your/path/shell-blog/util/daemon.sh > /log/path/daemon.log
 ```
 
 ## Post & modify file steps
