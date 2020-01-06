@@ -10,6 +10,6 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Check if only markdown files exist.
-      run: ci/type.sh
+      run: util/ci/type.sh
     - name: Check if filename in the correct date format.
-      run: ci/rename.sh
+      run: util/ci/rename.sh
