@@ -8,19 +8,48 @@
     <h1 style="text-align: center">Index</h1>
     <hr>
 
-    <ol id='list'></ol>
+    <div id="content">
+        <!-- details>
+            <summary>xxx</summary>
+            <ol id='list-2020-01-01'></ol>
+        </details -->
+    <div>
 
     <script>
+        let getList = function(name) {
+            let _date = name.substr(1, 7);
+            let id = '#list-' + _date;
+            let list = document.querySelector(id);
+            if (list !== null)
+                return list;
+
+            list = document.createElement('ol');
+            list.id = id.substr(1);
+            let details = document.createElement('details');
+            let summary = document.createElement('summary');
+            summary.innerText = _date;
+            details.appendChild(summary);
+            details.appendChild(list);
+            document.querySelector('#content').appendChild(details);
+
+            return list;
+        }
+
         let posts = `{{ls -1r post/*.md | sed "s/post//g"}}`.split('|||');
 
-        for (let elem of posts) {
+        for (let name of posts) {
+            let link = document.createElement('a');
+            link.innerText = name.split('_').join(' ');
+            link.href = "/posts.sh?name=" + name.substr(1);
+
             let li = document.createElement("li");
-            let link = document.createElement("a");
-            link.innerText = elem.split('_').join(' ');
-            link.href = "/posts.sh?name=" + elem.substr(1);
             li.appendChild(link);
-            document.querySelector("#list").appendChild(li);
+
+            let list = getList(name);
+            list.appendChild(li);
         }
+
+        document.querySelector('details').setAttribute('open', '');
     </script>
 </body>
 </html>
