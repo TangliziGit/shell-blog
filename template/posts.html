@@ -17,7 +17,7 @@
         let name = filename.split('_').join(' ')
         
         document.title = "posts - " + name;
-        document.querySelector('#title').innerHTML = name;
+        document.querySelector('#title').innerHTML = name.replace(' ', '<br />');
         fetch("/post/" + filename).then(resp => resp.text()).then(resp => {
             let md = window.markdownit({html: true, linkify: true, typographer: true});
             let result = md.render(resp);
