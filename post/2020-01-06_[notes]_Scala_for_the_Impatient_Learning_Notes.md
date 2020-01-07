@@ -1,3 +1,15 @@
+
+<!-- vim-markdown-toc Marked -->
+
+* [Scala Learning Notes](#scala-learning-notes)
+    * [Chapter 1](#chapter-1)
+    * [Chapter 2](#chapter-2)
+    * [Chapter 3 - Array](#chapter-3---array)
+    * [Chapter 4 - Map and Tuple](#chapter-4---map-and-tuple)
+    * [Chapter 5 - Class](#chapter-5---class)
+
+<!-- vim-markdown-toc -->
+
 # Scala Learning Notes
 Simply take some notes.
 

@@ -1,3 +1,23 @@
+
+<!-- vim-markdown-toc Marked -->
+
+* [Leetcode Solution](#leetcode-solution)
+        * [总结](#总结)
+    * [5303. Decrypt String from Alphabet to Integer Mapping](#5303.-decrypt-string-from-alphabet-to-integer-mapping)
+        * [思路](#思路)
+        * [要点](#要点)
+        * [代码](#代码)
+    * [5304. XOR Queries of a Subarray](#5304.-xor-queries-of-a-subarray)
+        * [思路](#思路)
+        * [要点](#要点)
+        * [代码](#代码)
+    * [5305. Get Watched Videos by Your Friends](#5305.-get-watched-videos-by-your-friends)
+        * [思路](#思路)
+        * [要点](#要点)
+        * [代码](#代码)
+
+<!-- vim-markdown-toc -->
+
 # Leetcode Solution
 久违的空闲周末, 久违的周赛
 昨天晚上把键盘ESC和Caps互相映射了一下, 导致今天打码卡手, 烦
