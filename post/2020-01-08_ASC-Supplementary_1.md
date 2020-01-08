@@ -1,12 +1,56 @@
+
+<!-- vim-markdown-toc Marked -->
+
+* [Todo](#todo)
+* [Domain](#domain)
+* [Models](#models)
+* [Papers](#papers)
+* [Dataset](#dataset)
+    * [Commonsense QA](#commonsense-qa)
+    * [HellaSwag](#hellaswag)
+    * [SQuAD](#squad)
+    * [RACE](#race)
+
+<!-- vim-markdown-toc -->
+
+# Todo
+- RoBERTa 原理 & 用法
+- BERT 原理
+- 优化方向:
+    - 传统方法考虑: 提升方法等
+    - 数据集
+    - 分布式训练
+    - loss (可能性不大, 本次题目loss很规范)
+    - 调参
+
+# Domain
+
+**Reading Comprehension**, Text Classification, Translation, Summarization, QA.
+
+
 # Models
 
-| model | time | notes / problems        |
-|-------|------|-------------------------|
-| GPT2  | 2019 | tensorflow, not pytorch |
-| XLNet | 2019 |                         |
+| model          | time | is PyTorch code? | RACE accuracy | HellaSwag | notes / problems |
+|----------------|------|------------------|---------------|-----------|------------------|
+| GPT2           | 2019 | No               |               |           |                  |
+| XLNet          | 2019 | No               | 81.75         | None      |                  |
+| **RoBERTa**    | 2019 | Yes              | 83.2          | 85.2      |                  |
+| transformer-xl | 2018 | Yes              | None          | None      |                  |
+
+# Papers
+
+| paper                                                                                   | has code |
+|-----------------------------------------------------------------------------------------|----------|
+| Cloze-driven Pretraining of Self-attention Networks                                     | No       |
+| Contextual Recurrent Units for Cloze-style Reading Comprehension                        | No       |
+| Design and Challenges of Cloze-Style Reading Comprehension Tasks on Multiparty Dialogue | No       |
 
 
 # Dataset
+
+The 2 datasets most like cloze test are RACE and HellaSwag,
+    but they both choose from 4 sentences, not words.
+
 ## Commonsense QA
 sample:
 ```
