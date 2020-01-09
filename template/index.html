@@ -3,17 +3,14 @@
 <head>
     <title>Index</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/static/main.css">
 </head>
 <body>
     ##nav##
-    <h1 style="text-align: center">Index</h1>
+    <h1 id="title">Index</h1>
     <hr>
 
     <div id="content">
-        <!-- details>
-            <summary>xxx</summary>
-            <ol id='list-2020-01-01'></ol>
-        </details -->
     <div>
 
     <script>
@@ -41,7 +38,7 @@
         for (let name of posts) {
             let link = document.createElement('a');
             link.innerText = name.split('_').join(' ');
-            link.href = "/posts.sh?name=" + name.substr(1);
+            link.href = "/post.sh?name=" + name.substr(1);
 
             let li = document.createElement("li");
             li.appendChild(link);
