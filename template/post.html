@@ -3,9 +3,13 @@
 <head>
     <title>posts</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="/static/github-markdown.css">
     <link rel="stylesheet" href="/static/main.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/10.0.0/markdown-it.min.js"></script>
+    <link rel="stylesheet" href="/static/github-markdown.css">
+    <link rel="stylesheet" href="/static/katex.min.css">
+    <link rel="stylesheet" href="/static/texmath.css">
+    <script src="/static/katex.min.js"></script>
+    <script src="/static/texmath.js"></script>
+    <script src="/static/markdown-it.min.js"></script>
 </head>
 <body>
     ##nav##
@@ -21,7 +25,9 @@
         document.title = "post - " + name;
         document.querySelector('#title').innerHTML = name.replace(' ', '<br />');
         fetch("/post/" + filename).then(resp => resp.text()).then(resp => {
-            let md = window.markdownit({html: true, linkify: true, typographer: true});
+            const tm = texmath.use(katex);
+            const md = window.markdownit({html: true, linkify: true, typographer: true})
+                .use(tm, {delimiters:'dollars', macros:{"\\RR": "\\mathbb{R}"}});
             let result = md.render(resp);
 
             document.querySelector("#content").innerHTML = result;
