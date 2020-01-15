@@ -32,6 +32,14 @@ Seq2Seq模型是输出的长度不确定时采用的模型.
 
 其中$\alpha$ 是由 $z_i$ 和 $h_i$ 得到.
 
+## Self-Attention
+
+较为复杂, 相见:
+
+<https://zhuanlan.zhihu.com/p/47282410>
+
+<https://jalammar.github.io/illustrated-transformer/>
+
 ## Transformer
 
 
