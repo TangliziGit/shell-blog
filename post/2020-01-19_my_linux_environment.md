@@ -22,12 +22,16 @@
 # My Linux Environment
 
 To connect to the college cluster, `EasyConnect` should be used.
+
 But in `archlinux`, it not works well.
+
 So i installed an ubuntu on a new USB disk, to access the cluster.
+
 In this file, i will record the process of configuring my new and simplest linux environment.
 
 
 ## Configuration files
+
 ```
 .zshrc
 .SpaceVim/init.toml
@@ -42,6 +46,7 @@ In this file, i will record the process of configuring my new and simplest linux
 ## Software sources
 
 ### apt
+
 `/etc/apt/source.list`:
 ```
 # aliyun
@@ -62,20 +67,25 @@ deb-src http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted unive
 ## Proxy
 
 ### ssh
+
 ```
 cp -r /mnt/tanglizi/.ssh .
 ```
 
 
 ### electron-ssr
+
 latest version: <https://github.com/qingshuisiyuan/electron-ssr-backup/releases/download/v0.2.6/electron-ssr-0.2.6.deb>.
+
 use your proxy server to download it via ssh.
+
 ```
 sudo apt install ./electron-ssr-0.2.6.deb
 ```
 
 
 ### proxychains4
+
 ```
 git clone https://github.com/rofl0r/proxychains-ng.git
 cd proxychains-ng
@@ -87,6 +97,7 @@ sudo make install
 ## Shell
 
 ### zsh
+
 1. install zsh: `sudo apt install zsh`
 2. install `oh-my-zsh`: `sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"`
 3. install plugins:
@@ -99,6 +110,7 @@ git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-m
 ## Editor
 
 ### SpaceVim
+
 ```
 wget https://spacevim.org/install.sh
 sudo apt install curl
@@ -108,10 +120,12 @@ then enter `vim`, to trigger the plugins installing process.
 
 
 ### markdown plugins
+
 Refer the pervious note `take_notes_with_vim_markdown.md`.
 
 
 ### typora
+
 ```
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BA300B7755AFCFAE
 sudo add-apt-repository 'deb https://typora.io ./linux/'
@@ -121,16 +135,21 @@ sudo apt-get install typora
 
 
 ## Conda
+
 <https://docs.conda.io/en/latest/miniconda.html>
+
 ```
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh
 ```
 then configure your `.zshrc`:
+
 ```
-export 
+export PATH=$PATH:$HOME/miniconda3/bin
+export LD_LIBRARY_PATH=$PATH:$HOME/miniconda3/lib
 ```
 then add tsinghua source, as `~/.condarc`:
+
 ```
 channels:
   - defaults
@@ -150,7 +169,9 @@ custom_channels:
 
 
 ### pip
+
 in `~/.pip/pip.conf`
+
 ```
 [global]
 index-url = https://pypi.tuna.tsinghua.edu.cn/simple
