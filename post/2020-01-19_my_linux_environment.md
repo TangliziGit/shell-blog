@@ -26,6 +26,7 @@ But in `archlinux`, it not works well.
 So i installed an ubuntu on a new USB disk, to access the cluster.
 In this file, i will record the process of configuring my new and simplest linux environment.
 
+
 ## Configuration files
 ```
 .zshrc
@@ -36,6 +37,7 @@ In this file, i will record the process of configuring my new and simplest linux
 .condarc
 .pip/pip.conf
 ```
+
 
 ## Software sources
 
@@ -64,12 +66,14 @@ deb-src http://mirrors.aliyun.com/ubuntu/ bionic-backports main restricted unive
 cp -r /mnt/tanglizi/.ssh .
 ```
 
+
 ### electron-ssr
 latest version: <https://github.com/qingshuisiyuan/electron-ssr-backup/releases/download/v0.2.6/electron-ssr-0.2.6.deb>.
 use your proxy server to download it via ssh.
 ```
 sudo apt install ./electron-ssr-0.2.6.deb
 ```
+
 
 ### proxychains4
 ```
@@ -78,6 +82,7 @@ cd proxychains-ng
 sudo ./configure --prefix=/usr/local
 sudo make install
 ```
+
 
 ## Shell
 
@@ -101,8 +106,10 @@ bash install.sh
 ```
 then enter `vim`, to trigger the plugins installing process.
 
+
 ### markdown plugins
 Refer the pervious note `take_notes_with_vim_markdown.md`.
+
 
 ### typora
 ```
@@ -111,6 +118,7 @@ sudo add-apt-repository 'deb https://typora.io ./linux/'
 sudo apt-get update
 sudo apt-get install typora
 ```
+
 
 ## Conda
 <https://docs.conda.io/en/latest/miniconda.html>
@@ -139,6 +147,7 @@ custom_channels:
   pytorch: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
   simpleitk: https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud
 ```
+
 
 ### pip
 in `~/.pip/pip.conf`
