@@ -72,7 +72,10 @@ def get_redirected(url):
 
 - 常规编写xpath爬取规则
 ```python
-xpath("//div[@class='q_bot']/table[1]/tbody/tr/td/text()")
+sites = {
+        "mofangge.com": ("mofangge.com", "2097152", "/html/body/div[3]/div[3]/div[3]/div[2]/div/table[1]/tbody/tr/td/div/text()"),
+        "mofangge.xin": ("mofangge.xin", "2097152", "/html/body/div[3]/div[3]/div[3]/div[2]/div/table[1]/tbody/tr/td/div/text()")
+}
 ```
 
 ### 成果
