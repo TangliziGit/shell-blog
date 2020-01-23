@@ -31,6 +31,7 @@
 ### 选择爬取站点
 
 用免费和资源多的角度考虑, 选取一个站点`mofangge.com`
+
 为了可扩展性, 设计功能为多个站点爬取
 
 
@@ -76,7 +77,10 @@ xpath("//div[@class='q_bot']/table[1]/tbody/tr/td/text()")
 
 ### 成果
 
-test数据集共400个样本, 其中150个是可以直接爬取到的完形填空, 其余都是阅读理解
+test数据集共400个样本, 能爬取到150个
+
+对于其余样本, 考虑加入其他站点
+
 样本:
 ```
 '/home/tanglizi/Code/asc/asc20/dataset/ELE/test/test0188.json':  [
