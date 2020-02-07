@@ -7,8 +7,12 @@
             * [Preserve Underlines](#preserve-underlines)
             * [Fill Back Answers](#fill-back-answers)
             * [Fill Back Answers Iteratively](#fill-back-answers-iteratively)
+            * [Candidates - failed](#candidates---failed)
+        * [Fine-tuning](#fine-tuning)
+            * [Build Dataset](#build-dataset)
+            * [Train](#train)
         * [Problems](#problems)
-        * [Result on valid](#result-on-valid)
+        * [Results on Valid](#results-on-valid)
 
 <!-- vim-markdown-toc -->
 
@@ -18,7 +22,7 @@
 
 将自定义任务换为模型自带的`fill_mask`任务, 它可以根据文章中的`<mask>`标记, 从词空间中选出k个最合适的词.  
 再将选出的词对4个选项进行相似度匹配, 选出最相似的词, 使用`spaCy`库.
-
+注意每篇文章的选项数可能不同, 共有{10, 12, 15, 20}个空.
 
 ### Optimization
 
@@ -43,6 +47,116 @@
 反复预测, 直到本轮没有新的`认为正确的选项`.  
 
 
+#### Candidates - failed
+
+
+
+### Fine-tuning
+
+#### Build Dataset
+
+1. 将完形填空数据补全成完整文章
+```python
+for dirname in os.listdir():
+    if not os.path.isdir(dirname):
+        continue
+
+    jsonl_content = []
+    articles = []
+
+    print(dirname)
+    for filename in tqdm(os.listdir(f"./{dirname}/")):
+        path = f"./{dirname}/{filename}"
+        example = json.loads(open(path, 'r').read())
+        jsonl_content.append(json.dumps(example))
+
+        answers = []
+        for options, key in zip(example['options'], example['answers']):
+            ans = options[ord(key) - ord('A')]
+            answers.append(ans)
+
+        splited = example['article'].split('_')
+        article = splited[0]
+        for art, ans in zip(splited[1:], answers):
+            article = article + ans + art
+
+        articles.append(article)
+
+    raw = open(f'{dirname}.raw', 'w')
+    jsonl = open(f'{dirname}.jsonl', 'w')
+
+    for article in articles:
+        raw.write(article + '\n\n')
+
+    for j in jsonl_content:
+        jsonl.write(j + '\n')
+```
+
+2. 将文章经过`bpe`编码, 统计词典并存为数据集文件夹
+```bash
+for SPLIT in train valid test; do \
+    python -m examples.roberta.multiprocessing_bpe_encoder \
+        --encoder-json gpt2_bpe/encoder.json \
+        --vocab-bpe gpt2_bpe/vocab.bpe \
+        --inputs data/ELE-raw/${SPLIT}.raw \
+        --outputs data/ELE-raw/${SPLIT}.bpe \
+        --keep-empty \
+        --workers 60; \
+done
+
+fairseq-preprocess \
+    --only-source \
+    --srcdict gpt2_bpe/dict.txt \
+    --trainpref data/ELE-raw/train.bpe \
+    --validpref data/ELE-raw/valid.bpe \
+    --testpref  data/ELE-raw/test.bpe \
+    --destdir data-bin/ele \
+    --workers 60
+```
+
+#### Train
+
+mask-finetune/base.sh
+```bash
+TOTAL_UPDATES=5000    # Total number of training steps
+WARMUP_UPDATES=400    # Warmup the learning rate over this many updates
+PEAK_LR=0.0005          # Peak learning rate, adjust as needed
+TOKENS_PER_SAMPLE=512   # Max sequence length
+MAX_POSITIONS=512       # Num. positional embeddings (usually same as above)
+# MAX_SENTENCES=16        # Number of sequences per batch (batch size)
+# UPDATE_FREQ=16          # Increase the batch size 16x
+MAX_SENTENCES=2        # Number of sequences per batch (batch size)
+UPDATE_FREQ=2          # Increase the batch size 16x
+
+CHECKPOINT_INTERNAL=100
+SAVE_DIR=checkpoints/mask-base
+ROBERTA_PATH=models/roberta.large/model.pt
+
+DATA_DIR=data-bin/ele
+
+# CUDA_VISIBLE_DEVICES=0 fairseq-train --fp16 $DATA_DIR \
+# CUDA_VISIBLE_DEVICES=0 fairseq-train $DATA_DIR \
+fairseq-train $DATA_DIR \
+    --task masked_lm --criterion masked_lm \
+    --arch roberta_large --sample-break-mode complete --tokens-per-sample $TOKENS_PER_SAMPLE \
+    --optimizer adam --adam-betas '(0.9,0.98)' --adam-eps 1e-6 --clip-norm 0.0 \
+    --lr-scheduler polynomial_decay --lr $PEAK_LR --warmup-updates $WARMUP_UPDATES --total-num-update $TOTAL_UPDATES \
+    --dropout 0.1 --attention-dropout 0.1 --weight-decay 0.01 \
+    --max-sentences $MAX_SENTENCES --update-freq $UPDATE_FREQ \
+    --max-update $TOTAL_UPDATES --log-format simple --log-interval 25 \
+    --restore-file $ROBERTA_PATH \
+    --save-interval-updates $CHECKPOINT_INTERNAL \
+    --save-dir $SAVE_DIR \
+    --skip-invalid-size-inputs-valid-test
+```
+注意:  
+1. 将`batch_size & update_freq`从`16`调整为`2`, 防止`OOM`出现打断分布训练.  
+2. 默认进行全部GPU的分布训练.  
+3. 将`updates`从`1250000`调整为`5000`, 因为数据集不大. `warmup_updates`亦然.  
+4. 取消`fp16`, 设备不支持.  
+5. 开启`skip-invalid`, 有些数据超过512的限制.  
+
+
 ### Problems
 
 1. 部分文章太长, 长于1543个字符即报错.
@@ -51,8 +165,20 @@
 
 3. roberta可能输出空串.
 
+4. roberta预训练模型的词典中, 可能不直接包含选项中的某个词.  
+如选项中的`greet`, 词典中没有这个词, 但是有`greeted`这个词.  
+导致无法直接取相应的词, 例:  
+```
+options:            ['charge', 'greet', 'treat', 'reward']
+bpe encode:         ['10136', '70 2871', '83 630', '260 904']
+dictory index:      [15040, 3, 3, 3]
+bpe decode:         [10136 <unk> <unk> <unk>]
+word in dictory:    ['charge', '<unk>', '<unk>', '<unk>']
+logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
+```
 
-### Result on valid
+
+### Results on Valid
 
 | RoBERTa model      | spaCy model    | input                  | lowest acc | highest acc | average acc | 方差    |
 |--------------------|----------------|------------------------|------------|-------------|-------------|---------|
