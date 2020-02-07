@@ -180,14 +180,14 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 
 ### Results on Valid
 
-| RoBERTa model      | spaCy model    | input                  | lowest acc | highest acc | average acc | 方差    |
-|--------------------|----------------|------------------------|------------|-------------|-------------|---------|
-| roberta.large      | en_core_web_sm | 全文                   | 0.1        | 0.9         | 0.5563      | 0.01918 |
-| roberta.large      | en_core_web_lg | 全文                   | 0.15       | 1.0         | 0.6392      | 0.01585 |
-| roberta.large.mnli | en_core_web_lg | 全文                   | 0.0        | 0.6         | 0.2959      | 0.01160 |
-| roberta.large      | en_core_web_lg | 全文 带下划线          | 0.15       | 1.0         | 0.6487      | 0.01628 |
-| roberta.large      | en_core_web_lg | 全文 带下划线 回填     | 0.15       | 1.0         | 0.6544      | 0.01674 |
-| roberta.base       | en_core_web_lg | 全文 带下划线 回填     | 0.15       | 0.9         | 0.6137      | 0.01659 |
-| roberta.large      | en_core_web_lg | 全文 带下划线 二次回填 | 0.15       | 1.0         | 0.6714      | 0.01836 |
-| roberta.large      | en_core_web_lg | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.6722**  | 0.01821 |
-
+| RoBERTa model      | spaCy model    | finetune | input                  | lowest acc | highest acc | average acc | 方差    |
+|--------------------|----------------|----------|------------------------|------------|-------------|-------------|---------|
+| roberta.large      | en_core_web_sm |          | 全文                   | 0.1        | 0.9         | 0.5563      | 0.01918 |
+| roberta.large      | en_core_web_lg |          | 全文                   | 0.15       | 1.0         | 0.6392      | 0.01585 |
+| roberta.large.mnli | en_core_web_lg |          | 全文                   | 0.0        | 0.6         | 0.2959      | 0.01160 |
+| roberta.large      | en_core_web_lg |          | 全文 带下划线          | 0.15       | 1.0         | 0.6487      | 0.01628 |
+| roberta.large      | en_core_web_lg |          | 全文 带下划线 回填     | 0.15       | 1.0         | 0.6544      | 0.01674 |
+| roberta.base       | en_core_web_lg |          | 全文 带下划线 回填     | 0.15       | 0.9         | 0.6137      | 0.01659 |
+| roberta.large      | en_core_web_lg |          | 全文 带下划线 二次回填 | 0.15       | 1.0         | 0.6714      | 0.01836 |
+| roberta.large      | en_core_web_lg |          | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6722      | 0.01821 |
+| roberta.large      | en_core_web_lg | base     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.6800**  | 0.01608 |
