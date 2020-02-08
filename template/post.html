@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="/static/github-markdown.css">
     <link rel="stylesheet" href="/static/katex.min.css">
     <link rel="stylesheet" href="/static/texmath.css">
+    <link rel="stylesheet" href="/static/gruvbox-light.min.css">
+    <script src="/static/highlight.min.js"></script>
     <script src="/static/katex.min.js"></script>
     <script src="/static/texmath.js"></script>
     <script src="/static/markdown-it.min.js"></script>
@@ -26,8 +28,15 @@
         document.querySelector('#title').innerHTML = name.replace(' ', '<br />');
         fetch("/post/" + filename).then(resp => resp.text()).then(resp => {
             const tm = texmath.use(katex);
-            const md = window.markdownit({html: true, linkify: true, typographer: true})
-                .use(tm, {delimiters:'dollars', macros:{"\\RR": "\\mathbb{R}"}});
+            const md = window.markdownit({html: true, linkify: true, typographer: true, highlight: function (str, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                  try {
+                    return hljs.highlight(lang, str).value;
+                  } catch (__) {}
+                }
+                return '';
+              }
+            }).use(tm, {delimiters:'dollars', macros:{"\\RR": "\\mathbb{R}"}});
             let result = md.render(resp);
 
             document.querySelector("#content").innerHTML = result;
