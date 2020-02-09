@@ -7,11 +7,15 @@
             * [Preserve Underlines](#preserve-underlines)
             * [Fill Back Answers](#fill-back-answers)
             * [Fill Back Answers Iteratively](#fill-back-answers-iteratively)
-            * [Candidates - failed](#candidates---failed)
+            * [Candidates ( Failed )](#candidates-(-failed-))
         * [Fine-tuning](#fine-tuning)
             * [Build Dataset](#build-dataset)
             * [Train](#train)
         * [Problems](#problems)
+        * [Ideas / Todo](#ideas-/-todo)
+            * [Models Selection](#models-selection)
+            * [Dataset Expansion](#dataset-expansion)
+            * [Training Parameters Adjustment](#training-parameters-adjustment)
         * [Results on Valid](#results-on-valid)
 
 <!-- vim-markdown-toc -->
@@ -47,8 +51,21 @@
 反复预测, 直到本轮没有新的`认为正确的选项`.  
 
 
-#### Candidates - failed
+#### Candidates ( Failed )
 
+可以从RoBERTa的输出中选择题目的4个选项, 但是题目中的选项有可能不在该模型的词汇表中.  
+测试结果中, 如选项`greet`不在模型中, 但`greeted`存在.  
+提出利用词汇相似度, 首先将题目中的选项中选出最匹配的词, 再从中选出最有可能是答案的那个.  
+但最后优化没有做成, 问题在于:
+
+1. 利用spaCy模型进行 $O(n^2)$ 复杂度的匹配过慢, 但可以利用`Vectors`进行矩阵优化.
+
+2. spaCy模型中也有缺词的现象, 这种情况下不可能进行词汇相似度.  
+但可以尝试其他的词汇相似度方法.
+
+注意, 优化的前提是, 我们未进行微调的模型词汇表中没有选项中的词汇.  
+若经过微调, 当词汇表中有了这些词汇, 就可以不利用`spaCy`模型进行这项优化.  
+所以说在微调完成前, 这是暂时失败的优化.  
 
 
 ### Fine-tuning
@@ -176,6 +193,34 @@ bpe decode:         [10136 <unk> <unk> <unk>]
 word in dictory:    ['charge', '<unk>', '<unk>', '<unk>']
 logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 ```
+
+
+### Ideas / Todo
+
+#### Models Selection
+
+候选模型列表:  
+`BERT`, `XLNet`, `XLM`, `DistilBERT`, `CamamBERT`, `ALBERT`, `XLM-RoBERTa`, `FlauBERT`.  
+
+建议优先(因为较新):
+`ALBERT`, `XLM-RoBERTa`, `FlauBERT`.  
+
+
+#### Dataset Expansion
+
+对数据集的扩充, 暂时有两种思路:  
+
+1. 使用`RACE`数据集, 这是选自中国中高考试卷阅读理解.  
+
+2. 继续进行爬虫的编写, 目标是阅读理解和完形天空.  
+由于爬取的数据较大, 所以需要考虑: 去重, 多站点, 反防爬(图片OCR, IP代理池等)等.  
+
+
+#### Training Parameters Adjustment
+
+主要考虑学习率的初值, 降低学习率的频率和大小, 学习率的峰值等.  
+需要微调完毕后, 进行分析.  
+
 
 
 ### Results on Valid
