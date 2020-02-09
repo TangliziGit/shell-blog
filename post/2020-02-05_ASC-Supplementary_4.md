@@ -12,11 +12,11 @@
             * [Build Dataset](#build-dataset)
             * [Train](#train)
         * [Problems](#problems)
-        * [Ideas / Todo](#ideas-/-todo)
-            * [Models Selection](#models-selection)
-            * [Dataset Expansion](#dataset-expansion)
-            * [Training Parameters Adjustment](#training-parameters-adjustment)
         * [Results on Valid](#results-on-valid)
+    * [Ideas / Todo](#ideas-/-todo)
+        * [Models Selection](#models-selection)
+        * [Dataset Expansion](#dataset-expansion)
+        * [Training Parameters Adjustment](#training-parameters-adjustment)
 
 <!-- vim-markdown-toc -->
 
@@ -195,34 +195,6 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 ```
 
 
-### Ideas / Todo
-
-#### Models Selection
-
-候选模型列表:  
-`BERT`, `XLNet`, `XLM`, `DistilBERT`, `CamamBERT`, `ALBERT`, `XLM-RoBERTa`, `FlauBERT`.  
-
-建议优先(因为较新):
-`ALBERT`, `XLM-RoBERTa`, `FlauBERT`.  
-
-
-#### Dataset Expansion
-
-对数据集的扩充, 暂时有两种思路:  
-
-1. 使用`RACE`数据集, 这是选自中国中高考试卷阅读理解.  
-
-2. 继续进行爬虫的编写, 目标是阅读理解和完形天空.  
-由于爬取的数据较大, 所以需要考虑: 去重, 多站点, 反防爬(图片OCR, IP代理池等)等.  
-
-
-#### Training Parameters Adjustment
-
-主要考虑学习率的初值, 降低学习率的频率和大小, 学习率的峰值等.  
-需要微调完毕后, 进行分析.  
-
-
-
 ### Results on Valid
 
 | RoBERTa model      | spaCy model    | finetune | input                  | lowest acc | highest acc | average acc | 方差    |
@@ -236,3 +208,31 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 | roberta.large      | en_core_web_lg |          | 全文 带下划线 二次回填 | 0.15       | 1.0         | 0.6714      | 0.01836 |
 | roberta.large      | en_core_web_lg |          | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6722      | 0.01821 |
 | roberta.large      | en_core_web_lg | base     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.6800**  | 0.01608 |
+
+
+## Ideas / Todo
+
+### Models Selection
+
+候选模型列表:  
+`BERT`, `XLNet`, `XLM`, `DistilBERT`, `CamamBERT`, `ALBERT`, `XLM-RoBERTa`, `FlauBERT`.  
+
+建议优先(因为较新):
+`ALBERT`, `XLM-RoBERTa`, `FlauBERT`.  
+
+
+### Dataset Expansion
+
+对数据集的扩充, 暂时有两种思路:  
+
+1. 使用`RACE`数据集, 这是选自中国中高考试卷阅读理解.  
+
+2. 继续进行爬虫的编写, 目标是阅读理解和完形天空.  
+由于爬取的数据较大, 所以需要考虑: 去重, 多站点, 反防爬(图片OCR, IP代理池等)等.  
+
+
+### Training Parameters Adjustment
+
+主要考虑学习率的初值, 降低学习率的频率和大小, 学习率的峰值等.  
+需要微调完毕后, 进行分析.  
+
