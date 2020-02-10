@@ -207,7 +207,8 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 | roberta.base       | en_core_web_lg |          | 全文 带下划线 回填     | 0.15       | 0.9         | 0.6137      | 0.01659 |
 | roberta.large      | en_core_web_lg |          | 全文 带下划线 二次回填 | 0.15       | 1.0         | 0.6714      | 0.01836 |
 | roberta.large      | en_core_web_lg |          | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6722      | 0.01821 |
-| roberta.large      | en_core_web_lg | base     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.6800**  | 0.01608 |
+| roberta.large      | en_core_web_lg | base     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6800      | 0.01608 |
+| roberta.large      | en_core_web_lg | large    | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.7177**  | 0.01788 |
 
 
 ## Ideas / Todo
