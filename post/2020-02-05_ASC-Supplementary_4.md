@@ -208,7 +208,17 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 | roberta.large      | en_core_web_lg |          | 全文 带下划线 二次回填 | 0.15       | 1.0         | 0.6714      | 0.01836 |
 | roberta.large      | en_core_web_lg |          | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6722      | 0.01821 |
 | roberta.large      | en_core_web_lg | base     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6800      | 0.01608 |
-| roberta.large      | en_core_web_lg | large    | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.7177**  | 0.01788 |
+| roberta.large      | en_core_web_lg | large    | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.7177      | 0.01788 |
+| roberta.large      | en_core_web_lg | exp1     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.7199**  | 0.01704 |
+| roberta.large      | en_core_web_lg | exp2     | 全文 带下划线 迭代回填 |            |             |             |         |
+
+
+| Finetune name | dataset  | train hours | TOTAL_UPDATES | WARMUP_UPDATES | PEAK_LR | MAX_SENTENCES | UPDATE_FREQ | others              |
+|---------------|----------|-------------|---------------|----------------|---------|---------------|-------------|---------------------|
+| base          | ele      | 1.5         | 5000          | 400            | 0.0005  | 2             | 2           |                     |
+| large         | ele      | 48          | 25000         | 2000           | 0.0001  | 2             | 64          |                     |
+| exp1          | ele      | 10          | 1800          | 150            | 0.00003 | 2             | 64          | 取消checkpoint_save |
+| exp2          | ele-race |             | 5000          | 400            | 0.0001  | 2             | 64          |                     |
 
 
 ## Ideas / Todo
