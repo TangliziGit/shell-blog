@@ -211,6 +211,8 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 | roberta.large      | en_core_web_lg | large    | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.7177      | 0.01788 |
 | roberta.large      | en_core_web_lg | exp1     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.7199**  | 0.01704 |
 | roberta.large      | en_core_web_lg | exp2     | 全文 带下划线 迭代回填 |            |             |             |         |
+| roberta.large      | None           | exp1     | 全文 带下划线 直接回填 |            |             | 0.8223      |         |
+
 
 
 | Finetune name | dataset  | train hours | TOTAL_UPDATES | WARMUP_UPDATES | PEAK_LR | MAX_SENTENCES | UPDATE_FREQ | others              |
