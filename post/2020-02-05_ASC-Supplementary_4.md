@@ -197,21 +197,30 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 
 ### Results on Valid
 
-| RoBERTa model      | spaCy model    | finetune | input                  | lowest acc | highest acc | average acc | 方差    |
-|--------------------|----------------|----------|------------------------|------------|-------------|-------------|---------|
-| roberta.large      | en_core_web_sm |          | 全文                   | 0.1        | 0.9         | 0.5563      | 0.01918 |
-| roberta.large      | en_core_web_lg |          | 全文                   | 0.15       | 1.0         | 0.6392      | 0.01585 |
-| roberta.large.mnli | en_core_web_lg |          | 全文                   | 0.0        | 0.6         | 0.2959      | 0.01160 |
-| roberta.large      | en_core_web_lg |          | 全文 带下划线          | 0.15       | 1.0         | 0.6487      | 0.01628 |
-| roberta.large      | en_core_web_lg |          | 全文 带下划线 回填     | 0.15       | 1.0         | 0.6544      | 0.01674 |
-| roberta.base       | en_core_web_lg |          | 全文 带下划线 回填     | 0.15       | 0.9         | 0.6137      | 0.01659 |
-| roberta.large      | en_core_web_lg |          | 全文 带下划线 二次回填 | 0.15       | 1.0         | 0.6714      | 0.01836 |
-| roberta.large      | en_core_web_lg |          | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6722      | 0.01821 |
-| roberta.large      | en_core_web_lg | base     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.6800      | 0.01608 |
-| roberta.large      | en_core_web_lg | large    | 全文 带下划线 迭代回填 | 0.15       | 1.0         | 0.7177      | 0.01788 |
-| roberta.large      | en_core_web_lg | exp1     | 全文 带下划线 迭代回填 | 0.15       | 1.0         | **0.7199**  | 0.01704 |
-| roberta.large      | en_core_web_lg | exp2     | 全文 带下划线 迭代回填 |            |             |             |         |
-| roberta.large      | None           | exp1     | 全文 带下划线 直接回填 |            |             | 0.8223      |         |
+| id | RoBERTa model      | spaCy model    | finetune | input                  | FB_threshold | lowest acc | highest acc | average acc | 方差    |
+|----|--------------------|----------------|----------|------------------------|--------------|------------|-------------|-------------|---------|
+| 1  | roberta.large      | en_core_web_sm |          | 全文                   |              | 0.1        | 0.9         | 0.5563      | 0.01918 |
+| 2  | roberta.large      | en_core_web_lg |          | 全文                   |              | 0.15       | 1.0         | 0.6392      | 0.01585 |
+| 3  | roberta.large.mnli | en_core_web_lg |          | 全文                   |              | 0.0        | 0.6         | 0.2959      | 0.01160 |
+| 4  | roberta.large      | en_core_web_lg |          | 全文 带下划线          |              | 0.15       | 1.0         | 0.6487      | 0.01628 |
+| 5  | roberta.large      | en_core_web_lg |          | 全文 带下划线 回填     | t2           | 0.15       | 1.0         | 0.6544      | 0.01674 |
+| 6  | roberta.base       | en_core_web_lg |          | 全文 带下划线 回填     | t2           | 0.15       | 0.9         | 0.6137      | 0.01659 |
+| 7  | roberta.large      | en_core_web_lg |          | 全文 带下划线 二次回填 | t2           | 0.15       | 1.0         | 0.6714      | 0.01836 |
+| 8  | roberta.large      | en_core_web_lg |          | 全文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.6722      | 0.01821 |
+| 9  | roberta.large      | en_core_web_lg | base     | 全文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.6800      | 0.01608 |
+| 10 | roberta.large      | en_core_web_lg | large    | 全文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7177      | 0.01788 |
+| 11 | roberta.large      | en_core_web_lg | exp1     | 全文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7199      | 0.01704 |
+| 12 | roberta.large      | en_core_web_lg | exp2     | 全文 带下划线 迭代回填 |              |            |             |             |         |
+| 13 | roberta.large      |                | exp1     | 全文 带下划线 迭代回填 | t2           | 0.2        | 1.0         | 0.8120      | 0.01611 |
+| 14 | roberta.large      |                | exp1     | 全文 带下划线 全回填   | t0           | 0.2        | 1.0         | **0.8229**  | 0.01573 |
+| 15 | roberta.large      |                | exp1     | 全文 带下划线          | t1           |            |             |             |         |
+
+
+| FB_threshold | value              | comment        |
+|--------------|--------------------|----------------|
+| t0           | 0.0                | 全部回填       |
+| t1           | 1.1                | 不回填         |
+| t2           | 0.9999998585327273 | 以#4为基准计算 |
 
 
 
