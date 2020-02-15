@@ -13,6 +13,9 @@
             * [Train](#train)
         * [Problems](#problems)
         * [Results on Valid](#results-on-valid)
+        * [Analysis](#analysis)
+            * [Loss](#loss)
+            * [Error Type](#error-type)
     * [Ideas / Todo](#ideas-/-todo)
         * [Models Selection](#models-selection)
         * [Dataset Expansion](#dataset-expansion)
@@ -27,6 +30,7 @@
 将自定义任务换为模型自带的`fill_mask`任务, 它可以根据文章中的`<mask>`标记, 从词空间中选出k个最合适的词.  
 再将选出的词对4个选项进行相似度匹配, 选出最相似的词, 使用`spaCy`库.
 注意每篇文章的选项数可能不同, 共有{10, 12, 15, 20}个空.
+
 
 ### Optimization
 
@@ -242,6 +246,22 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 | exp3     | ele      | 2*P100 | 7           | 1200             |                | 0.00001  | 2             | 64          | 1.34585       | fixed learning rate       | 0212_21:20.log |
 | exp4     | ele      | 2*P10  | 14          | 2400             |                | 0.000004 | 2             | 64          | **1.33823**   | fixed learning rate       | 0214_00:21.log |
 
+
+### Analysis
+
+#### Loss
+
+The train analysis image, on all trained model's loss and learning rate.
+![total.png](https://i.loli.net/2020/02/15/xXFEhBrLapePt2A.png)
+
+
+#### Error Type
+
+| error name  | count   | comment                             |
+|-------------|---------|-------------------------------------|
+| unk         | 220     | lack of the answer word             |
+| near        | **460** | option with 2nd score is the answer |
+| far / other | 267     | other error                         |
 
 
 
