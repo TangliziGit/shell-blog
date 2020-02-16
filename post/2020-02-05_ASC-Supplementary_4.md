@@ -201,40 +201,41 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 
 ### Results on Valid
 
-| id | RoBERTa model      | spaCy model    | finetune | input                    | FB_threshold | lowest acc | highest acc | **average acc** | 方差    | log file                           |
-|----|--------------------|----------------|----------|--------------------------|--------------|------------|-------------|-----------------|---------|------------------------------------|
-| 1  | roberta.large      | en_core_web_sm |          | 全短文                   |              | 0.1        | 0.9         | 0.5563          | 0.01918 |                                    |
-| 2  | roberta.large      | en_core_web_lg |          | 全短文                   |              | 0.15       | 1.0         | 0.6392          | 0.01585 |                                    |
-| 3  | roberta.large.mnli | en_core_web_lg |          | 全短文                   |              | 0.0        | 0.6         | 0.2959          | 0.01160 |                                    |
-| 4  | roberta.large      | en_core_web_lg |          | 全短文 带下划线          |              | 0.15       | 1.0         | 0.6487          | 0.01628 |                                    |
-| 5  | roberta.large      | en_core_web_lg |          | 全短文 带下划线 回填     | t2           | 0.15       | 1.0         | 0.6544          | 0.01674 |                                    |
-| 6  | roberta.base       | en_core_web_lg |          | 全短文 带下划线 回填     | t2           | 0.15       | 0.9         | 0.6137          | 0.01659 |                                    |
-| 7  | roberta.large      | en_core_web_lg |          | 全短文 带下划线 二次回填 | t2           | 0.15       | 1.0         | 0.6714          | 0.01836 |                                    |
-| 8  | roberta.large      | en_core_web_lg |          | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.6722          | 0.01821 |                                    |
-| 9  | roberta.large      | en_core_web_lg | base     | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.6800          | 0.01608 |                                    |
-| 10 | roberta.large      | en_core_web_lg | large    | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7177          | 0.01788 |                                    |
-| 11 | roberta.large      | en_core_web_lg | exp1     | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7199          | 0.01704 |                                    |
-| 12 | roberta.large      | en_core_web_lg | exp2     | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7098          | 0.01683 |                                    |
-| 13 | roberta.large      |                | exp1     | 全短文 带下划线 迭代回填 | t2           | 0.2        | 1.0         | 0.8120          | 0.01611 |                                    |
-| 14 | roberta.large      |                | exp1     | 全短文 带下划线 全回填   | t0           | 0.2        | 1.0         | 0.8229          | 0.01573 |                                    |
-| 15 | roberta.large      |                | exp1     | 全短文 带下划线          | t1           | 0.2        | 1.0         | 0.8123          | 0.01615 |                                    |
-| 16 | roberta.large      |                | exp1     | 全短文 带下划线 迭代回填 | t3           | 0.2        | 1.0         | 0.8258          | 0.01556 |                                    |
-| 17 | roberta.large      |                | large    | 全短文 带下划线 迭代回填 | t3           | 0.2        | 1.0         | 0.8269          | 0.01554 |                                    |
-| 18 | roberta.large      |                | large    | 全短文 迭代回填          | t3           | 0.2        | 1.0         | 0.8278          | 0.01553 | mask-large-without_ul              |
-| 19 | roberta.large      |                | large    | 全文 迭代回填            | t3           | 0.2        | 1.0         | 0.8280          | 0.01712 | mask-large-without_ul-long_art     |
-| 20 | roberta.large      |                | large    | 全文 迭代回填 多段词     | t3           | 0.2        | 1.0         | 0.8746          | 0.01180 | mask-large-without_ul-long_art-unk |
-| 21 | roberta.large      |                | exp3     | 全文 迭代回填 多段词     | t3           | 0.2        | 1.0         | **0.8786**      | 0.01113 | mask-exp3-without_ul-long_art-unk  |
-| 22 | roberta.large      |                | exp3     | 全文 迭代回填 多段词     | t4           | 0.25       | 1.0         | 0.8783          | 0.01127 | mask-exp3-t4                       |
-| 23 | roberta.large      |                | exp4     | 全文 迭代回填 多段词     | t4           | 0.2        | 1.0         | 0.8771          | 0.01139 | mask-exp4-t4                       |
-| 24 | roberta.large      |                | exp4     | 全文 迭代回填 多段词     | t3           | 0.25       | 1.0         | 0.8774          | 0.01125 | mask-exp4-t3                       |
+| id  | RoBERTa model      | spaCy model    | finetune | input                    | FB_threshold | lowest acc | highest acc | **average acc** | 方差    | log file                           |
+|-----|--------------------|----------------|----------|--------------------------|--------------|------------|-------------|-----------------|---------|------------------------------------|
+| #1  | roberta.large      | en_core_web_sm |          | 全短文                   |              | 0.1        | 0.9         | 0.5563          | 0.01918 |                                    |
+| #2  | roberta.large      | en_core_web_lg |          | 全短文                   |              | 0.15       | 1.0         | 0.6392          | 0.01585 |                                    |
+| #3  | roberta.large.mnli | en_core_web_lg |          | 全短文                   |              | 0.0        | 0.6         | 0.2959          | 0.01160 |                                    |
+| #4  | roberta.large      | en_core_web_lg |          | 全短文 带下划线          |              | 0.15       | 1.0         | 0.6487          | 0.01628 |                                    |
+| #5  | roberta.large      | en_core_web_lg |          | 全短文 带下划线 回填     | t2           | 0.15       | 1.0         | 0.6544          | 0.01674 |                                    |
+| #6  | roberta.base       | en_core_web_lg |          | 全短文 带下划线 回填     | t2           | 0.15       | 0.9         | 0.6137          | 0.01659 |                                    |
+| #7  | roberta.large      | en_core_web_lg |          | 全短文 带下划线 二次回填 | t2           | 0.15       | 1.0         | 0.6714          | 0.01836 |                                    |
+| #8  | roberta.large      | en_core_web_lg |          | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.6722          | 0.01821 |                                    |
+| #9  | roberta.large      | en_core_web_lg | base     | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.6800          | 0.01608 |                                    |
+| #10 | roberta.large      | en_core_web_lg | large    | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7177          | 0.01788 |                                    |
+| #11 | roberta.large      | en_core_web_lg | exp1     | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7199          | 0.01704 |                                    |
+| #12 | roberta.large      | en_core_web_lg | exp2     | 全短文 带下划线 迭代回填 | t2           | 0.15       | 1.0         | 0.7098          | 0.01683 |                                    |
+| #13 | roberta.large      |                | exp1     | 全短文 带下划线 迭代回填 | t2           | 0.2        | 1.0         | 0.8120          | 0.01611 |                                    |
+| #14 | roberta.large      |                | exp1     | 全短文 带下划线 全回填   | t0           | 0.2        | 1.0         | 0.8229          | 0.01573 |                                    |
+| #15 | roberta.large      |                | exp1     | 全短文 带下划线          | t1           | 0.2        | 1.0         | 0.8123          | 0.01615 |                                    |
+| #16 | roberta.large      |                | exp1     | 全短文 带下划线 迭代回填 | t3           | 0.2        | 1.0         | 0.8258          | 0.01556 |                                    |
+| #17 | roberta.large      |                | large    | 全短文 带下划线 迭代回填 | t3           | 0.2        | 1.0         | 0.8269          | 0.01554 |                                    |
+| #18 | roberta.large      |                | large    | 全短文 迭代回填          | t3           | 0.2        | 1.0         | 0.8278          | 0.01553 | mask-large-without_ul              |
+| #19 | roberta.large      |                | large    | 全文 迭代回填            | t3           | 0.2        | 1.0         | 0.8280          | 0.01712 | mask-large-without_ul-long_art     |
+| #20 | roberta.large      |                | large    | 全文 迭代回填 多段词     | t3           | 0.2        | 1.0         | 0.8746          | 0.01180 | mask-large-without_ul-long_art-unk |
+| #21 | roberta.large      |                | exp3     | 全文 迭代回填 多段词     | t3           | 0.2        | 1.0         | **0.8786**      | 0.01113 | mask-exp3-without_ul-long_art-unk  |
+| #22 | roberta.large      |                | exp3     | 全文 迭代回填 多段词     | t4           | 0.25       | 1.0         | 0.8783          | 0.01127 | mask-exp3-t4                       |
+| #23 | roberta.large      |                | exp4     | 全文 迭代回填 多段词     | t4           | 0.2        | 1.0         | 0.8771          | 0.01139 | mask-exp4-t4                       |
+| #24 | roberta.large      |                | exp4     | 全文 迭代回填 多段词     | t3           | 0.25       | 1.0         | 0.8774          | 0.01125 | mask-exp4-t3                       |
 
 
-| FB_threshold | value              | comment         |
-|--------------|--------------------|-----------------|
-| t0           | 0.0                | 全部回填        |
-| t1           | 1.1                | 不回填          |
-| t2           | 0.9999998585327273 | 以#4为基准计算  |
-| t3           | 0.8229047072330654 | 以#14为基准计算 |
+| FB_threshold | value              | comment          |
+|--------------|--------------------|------------------|
+| t0           | 0.0                | 全部回填         |
+| t1           | 1.1                | 不回填           |
+| t2           | 0.9999998585327273 | 以#4 为基准计算  |
+| t3           | 0.8229047072330654 | 以#14 为基准计算 |
+| t4           | 0.8785586047704540 | 以#21 为基准计算 |
 
 
 | Finetune | dataset  | env    | train hours | TOTAL_UPDATES    | WARMUP_UPDATES | PEAK_LR  | MAX_SENTENCES | UPDATE_FREQ | **best_loss** | others                    | log file       |
@@ -252,17 +253,31 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 #### Loss
 
 The train analysis image, on all trained model's loss and learning rate.
-![total.png](https://i.loli.net/2020/02/15/xXFEhBrLapePt2A.png)
+
+![loss.png](https://i.loli.net/2020/02/16/DNWRs7S8AT56IOh.png)
 
 
 #### Error Type
 
-| error name  | count   | comment                             |
-|-------------|---------|-------------------------------------|
-| unk         | 220     | lack of the answer word             |
-| near        | **460** | option with 2nd score is the answer |
-| far / other | 267     | other error                         |
+| error name  | comment                                           |
+|-------------|---------------------------------------------------|
+| multi-words | option with not only one word, causes <unk> error |
+| unk         | lack of the answer word                           |
+| near        | option with 2nd score is the answer               |
+| far / other | other error                                       |
 
+
+| id  | mw  | unk | near | far |
+|-----|-----|-----|------|-----|
+| #19 | 580 | 203 | 391  | 167 |
+| #20 | 0   | 220 | 493  | 265 |
+| #21 | 0   | 220 | 460  | 267 |
+| #22 | 0   | 220 | 465  | 264 |
+| #23 | 0   | 220 | 476  | 268 |
+| #24 | 0   | 220 | 468  | 268 |
+
+
+![error.png](https://i.loli.net/2020/02/16/LEFuQMI2fUHpBYP.png)
 
 
 ## Ideas / Todo
