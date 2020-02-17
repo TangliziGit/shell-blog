@@ -223,7 +223,7 @@ fairseq-train $DATA_DIR \
 
 3. roberta可能输出空串.
 
-4. <del>roberta预训练模型的词典中, 可能不直接包含选项中的某个词.  
+4. roberta预训练模型的词典中, 可能不直接包含选项中的某个词.  
 如选项中的`greet`, 词典中没有这个词, 但是有`greeted`这个词.  
 导致无法直接取相应的词, 例:  
 ```
@@ -233,7 +233,7 @@ dictory index:      [15040, 3, 3, 3]
 bpe decode:         [10136 <unk> <unk> <unk>]
 word in dictory:    ['charge', '<unk>', '<unk>', '<unk>']
 logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
-```</del>
+```
 
 
 ### Results on Valid
