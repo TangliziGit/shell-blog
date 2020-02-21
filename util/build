@@ -12,4 +12,5 @@ else
     resp="$resp\r\n"
 fi
 
+resp="$(printf "$resp")"
 printf "%s" "$resp"
