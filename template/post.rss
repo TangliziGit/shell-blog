@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+    <channel>
+        <title>Tanglizi Shell-Blog</title>
+        <link>http://39.106.185.26/</link>
+        <description>My blog based on shell.</description>
+        <atom:link href="http://39.106.185.26/post.rss" rel="self" />
+        <language>zh-cn</language>
+        <copyright>Tanglizi</copyright>
+        <lastBuildDate>{{date}}</lastBuildDate>
+        <ttl>180</ttl>
+        $$items$$
+    </channel>
+</rss>

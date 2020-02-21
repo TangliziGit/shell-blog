@@ -1,0 +1,10 @@
+      <item>
+         <title>$$name$$</title>
+         <link>http://39.106.185.26/post.sh?name=$$name$$</link>
+            <description>
+                $$content$$
+            </description>
+         <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">Tanglizi</dc:creator>
+         <pubDate>$$date$$</pubDate>
+         <guid>http://39.106.185.26/</guid>
+      </item>
