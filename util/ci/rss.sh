@@ -10,6 +10,8 @@ for filename in `ls -1r post/*.md | head -5`; do
     name="$(printf "$name" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
     date="$(printf "$date" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
     content="$(printf "%s" "$content" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
+    content="$(printf "%s" "$content" | a='<' b="&lt;" perl -pe 's/$ENV{a}/$ENV{b}/g')"
+    content="$(printf "%s" "$content" | a='>' b="&gt;" perl -pe 's/$ENV{a}/$ENV{b}/g')"
     
     item=$item_template
     item="$(printf "$item" | a='\$\$name\$\$' b="$name" perl -pe 's/$ENV{a}/$ENV{b}/g')"
