@@ -15,7 +15,7 @@ for filename in `ls -1r post/*.md | head -5`; do
     item="$(printf "$item" | a='\$\$name\$\$' b="$name" perl -pe 's/$ENV{a}/$ENV{b}/g')"
     item="$(printf "$item" | a='\$\$date\$\$' b="$date" perl -pe 's/$ENV{a}/$ENV{b}/g')"
     item="$(printf "$item" | a='\$\$content\$\$' b="$content" perl -pe 's/$ENV{a}/$ENV{b}/g')"
-    items="$items\n$item"
+    items="$items $item"
 done
 
 rss="$(cat template/post.rss)"
