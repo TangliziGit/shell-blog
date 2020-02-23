@@ -43,16 +43,16 @@ pip install --editable .
 
 You may get a error message below:  
 
->                                !! WARNING !!
+>                                !! WARNING !!  
+>      
+>    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
+>    Your compiler (g++ 4.8.5) may be ABI-incompatible with PyTorch!  
+>    Please use a compiler that is ABI-compatible with GCC 4.9 and above.  
+>    See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.  
 >    
->    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
->    Your compiler (g++ 4.8.5) may be ABI-incompatible with PyTorch!
->    Please use a compiler that is ABI-compatible with GCC 4.9 and above.
->    See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.
->    
->    See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6
->    for instructions on how to install GCC 4.9 or higher.
->    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+>    See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6  
+>    for instructions on how to install GCC 4.9 or higher.  
+>    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
 
 If the message appears, install GCC with higher version beforehead.  
 ```bash
@@ -71,29 +71,29 @@ sudo tar xf cudnn-10.1-linux-x64-v7.6.4.38.tgz -C /usr/local
 ```
 
 You may get a error logging below:  
-> [INFO]: ERROR: You appear to be running an X server; please exit X before
-> [INFO]:        installing.  For further details, please see the section INSTALLING
-> [INFO]:        THE NVIDIA DRIVER in the README available on the Linux driver
-> [INFO]:        download page at www.nvidia.com.
+> [INFO]: ERROR: You appear to be running an X server; please exit X before  
+> [INFO]:        installing.  For further details, please see the section INSTALLING  
+> [INFO]:        THE NVIDIA DRIVER in the README available on the Linux driver  
+> [INFO]:        download page at www.nvidia.com.  
 
 you can run this command, and get another error:  
 ```bash 
 systemctl stop gdm
 ```
 
-> [INFO]: ERROR: An NVIDIA kernel module 'nvidia' appears to already be loaded in
-> [INFO]:        your kernel.  This may be because it is in use (for example, by an X
-> [INFO]:        server, a CUDA program, or the NVIDIA Persistence Daemon), but this
-> [INFO]:        may also happen if your kernel was configured without support for
-> [INFO]:        module unloading.  Please be sure to exit any programs that may be
-> [INFO]:        using the GPU(s) before attempting to upgrade your driver.  If no
-> [INFO]:        GPU-based programs are running, you know that your kernel supports
-> [INFO]:        module unloading, and you still receive this message, then an error
-> [INFO]:        may have occured that has corrupted an NVIDIA kernel module's usage
-> [INFO]:        count, for which the simplest remedy is to reboot your computer.
+> [INFO]: ERROR: An NVIDIA kernel module 'nvidia' appears to already be loaded in  
+> [INFO]:        your kernel.  This may be because it is in use (for example, by an X  
+> [INFO]:        server, a CUDA program, or the NVIDIA Persistence Daemon), but this  
+> [INFO]:        may also happen if your kernel was configured without support for  
+> [INFO]:        module unloading.  Please be sure to exit any programs that may be  
+> [INFO]:        using the GPU(s) before attempting to upgrade your driver.  If no  
+> [INFO]:        GPU-based programs are running, you know that your kernel supports  
+> [INFO]:        module unloading, and you still receive this message, then an error  
+> [INFO]:        may have occured that has corrupted an NVIDIA kernel module's usage  
+> [INFO]:        count, for which the simplest remedy is to reboot your computer.  
 
 So, i try to unload nvidia module `sudo modprobe -r nvidia`, but get error:  
-> modprobe: FATAL: Module nvidia is in use.
+> modprobe: FATAL: Module nvidia is in use.  
 
 So, i checked the nvidia module status `lsmod | grep nvidia`, get this:  
 ```
