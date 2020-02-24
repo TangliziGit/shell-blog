@@ -1,16 +1,18 @@
 
 <!-- vim-markdown-toc Marked -->
 
-* [ASC Suplementary 5](#asc-suplementary-5)
+* [ASC Supplementary 5](#asc-supplementary-5)
     * [Project Migration](#project-migration)
         * [Code](#code)
         * [Dataset](#dataset)
         * [Python Environment](#python-environment)
         * [CUDA Environment](#cuda-environment)
+            * [Installment](#installment)
+            * [Error Handling](#error-handling)
 
 <!-- vim-markdown-toc -->
 
-# ASC Suplementary 5 
+# ASC Supplementary 5 
 
 ## Project Migration
 
@@ -32,6 +34,7 @@ git clone https://gitee.com/TangliziGit/ASC20-ELE
 那么只能用`scp`移动, 需要花费很长时间.  
 ```bash
 scp -r asc20@202.117.249.199:~/data/zhangcx/ele/data .
+scp -r asc20@202.117.249.199:~/data/zhangcx/ele/data-bin .
 scp -r asc20@202.117.249.199:~/data/zhangcx/ele/checkpoints .
 ```
 
@@ -43,8 +46,6 @@ pip install --editable .
 
 You may get a error message below:  
 
->                                !! WARNING !!  
->      
 >    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
 >    Your compiler (g++ 4.8.5) may be ABI-incompatible with PyTorch!  
 >    Please use a compiler that is ABI-compatible with GCC 4.9 and above.  
@@ -64,23 +65,28 @@ scl enable devtoolset-7 bash
 
 ### CUDA Environment 
 
-For better profermance, cuda 10.1 is needed.  
+For better performance, cuda 10.1 is needed.  
+
+#### Installment
 ```bash
 sudo bash cuda_10.1.105_418.39_linux.run
 sudo tar xf cudnn-10.1-linux-x64-v7.6.4.38.tgz -C /usr/local
 ```
 
-You may get a error logging below:  
+#### Error Handling
+
+When install `cuda_10.1.105_418.39_linux.run`, you may get a error logging below:  
 > [INFO]: ERROR: You appear to be running an X server; please exit X before  
 > [INFO]:        installing.  For further details, please see the section INSTALLING  
 > [INFO]:        THE NVIDIA DRIVER in the README available on the Linux driver  
 > [INFO]:        download page at www.nvidia.com.  
 
-you can run this command, and get another error:  
+you can run this command to close X window, and **continue to install the driver**.  
 ```bash 
 systemctl stop gdm
 ```
 
+And you may get this error:   
 > [INFO]: ERROR: An NVIDIA kernel module 'nvidia' appears to already be loaded in  
 > [INFO]:        your kernel.  This may be because it is in use (for example, by an X  
 > [INFO]:        server, a CUDA program, or the NVIDIA Persistence Daemon), but this  
@@ -92,26 +98,30 @@ systemctl stop gdm
 > [INFO]:        may have occured that has corrupted an NVIDIA kernel module's usage  
 > [INFO]:        count, for which the simplest remedy is to reboot your computer.  
 
-So, i try to unload nvidia module `sudo modprobe -r nvidia`, but get error:  
+You can unload nvidia module manually by runing `sudo modprobe -r nvidia`, but get an other error:  
 > modprobe: FATAL: Module nvidia is in use.  
 
-So, i checked the nvidia module status `lsmod | grep nvidia`, get this:  
+To check the nvidia module status `lsmod | grep nvidia`, get this:  
 ```
 nvidia              13169562  15 
 i2c_core               40756  6 ast,drm,i2c_i801,drm_kms_helper,i2c_algo_bit,nvidia
 ```
 It shows that nvidia module has been used by 15 processes, and `i2c_core` depends on `nvidia` module.  
 
-To kill all the processes who using the module, i find some processes named `irq/290-nvidia`, `irq/291-nvidia` or `irq/292-nvidia`.  
+To kill all the processes who using the module, you can find some processes named `irq/290-nvidia`, `irq/291-nvidia` or `irq/292-nvidia`.  
 Those processes are IRQ process, it seems can not be kill, because they are kernel threads.  
 
-So, I will try the commands below, to boot OS without load nvidia and install the new driver, and recovery the status.  
-Or, try to use `nvidia-docker`.  
-```
-sudo systemctl set-default multi-user.target
-sudo reboot
+There will be 2 ways to handle installment error:
 
-sudo ./NVIDIA-Linux-x86_64-440.44.run
-sudo systemctl set-default graphical.target
-sudo reboot
-```
+1. [solved] You can try the commands below, to boot OS without loading nvidia and install the new driver, at last recovery the status.  
+    ```
+    sudo systemctl set-default multi-user.target
+    sudo reboot
+
+    sudo bash cuda_10.1.105_418.39_linux.run
+    sudo systemctl set-default graphical.target
+    sudo reboot
+    ```
+
+2. Or, try to use `nvidia-docker`.  
+
