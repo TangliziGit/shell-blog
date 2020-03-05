@@ -113,15 +113,13 @@ Those processes are IRQ process, it seems can not be kill, because they are kern
 
 There will be 2 ways to handle installment error:
 
-1. [solved] You can try the commands below, to boot OS without loading nvidia and install the new driver, at last recovery the status.  
-    ```
-    sudo systemctl set-default multi-user.target
-    sudo reboot
+You can try the commands below, to boot OS without loading nvidia and install the new driver, and recovery the status.  
+```
+sudo systemctl set-default multi-user.target
+sudo reboot
 
-    sudo bash cuda_10.1.105_418.39_linux.run
-    sudo systemctl set-default graphical.target
-    sudo reboot
-    ```
-
-2. Or, try to use `nvidia-docker`.  
+sudo bash cuda_10.1.105_418.39_linux.run
+sudo systemctl set-default graphical.target
+sudo reboot
+```
 
