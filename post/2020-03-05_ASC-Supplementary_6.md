@@ -36,19 +36,19 @@
     ```
 
     Below is the packages this project directly depends on:
-    > requests==2.19.1
-    > sentencepiece==0.1.85
-    > torch==1.4.0
-    > numpy==1.15.1
-    > Cython==0.28.5
-    > matplotlib==2.2.3
-    > sacrebleu==1.4.3
-    > tqdm==4.26.0
-    > click==6.7
-    > h5py==2.8.0
-    > regex==2020.2.20
-    > nltk==3.3
-    > pandas==0.23.4
+    > requests==2.19.1  
+    > sentencepiece==0.1.85  
+    > torch==1.4.0  
+    > numpy==1.15.1  
+    > Cython==0.28.5  
+    > matplotlib==2.2.3  
+    > sacrebleu==1.4.3  
+    > tqdm==4.26.0  
+    > click==6.7  
+    > h5py==2.8.0  
+    > regex==2020.2.20  
+    > nltk==3.3  
+    > pandas==0.23.4  
 
 
 ## Evaluate and Finetune
