@@ -264,7 +264,10 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 | #22 | roberta.large      |                | exp3     | 全文 迭代回填 多段词      | t4           | 0.25       | 1.0         | 0.8783          | 0.01127 | mask-exp3-t4                       |
 | #23 | roberta.large      |                | exp4     | 全文 迭代回填 多段词      | t4           | 0.2        | 1.0         | 0.8771          | 0.01139 | mask-exp4-t4                       |
 | #24 | roberta.large      |                | exp4     | 全文 迭代回填 多段词      | t3           | 0.25       | 1.0         | 0.8774          | 0.01125 | mask-exp4-t3                       |
-| #25 | roberta.large      |                | exp4     | 全文 迭代回填 多段词 邻近 | t3           | 0.25       | 1.0         | 0.8780          | 0.01185 | test_b                       |
+| #25 | roberta.large      |                | exp4     | 全文 迭代回填 多段词 邻近 | t3           | 0.25       | 1.0         | 0.8780          | 0.01185 | test_b                             |
+| #26 | roberta.large      |                | exp5     | 全文 迭代回填 多段词      | t3           | 0.05       | 0.7         | 0.2996          | 0.01389 | mask-exp5                          |
+| #27 | roberta.large      |                | exp6     | 全文 迭代回填 多段词      | t3           | 0.05       | 0.75        | 0.3052          | 0.01386 | mask-exp6                          |
+| #28 | roberta.large      |                | exp7     | 全文 迭代回填 多段词      | t3           | 0.0        | 0.75        | 0.3067          | 0.01443 | mask-exp7                          |
 
 
 | FB_threshold | value              | comment          |
@@ -276,14 +279,18 @@ logits:             tensor([-4.2741, -3.2696, -3.2696, -3.2696])
 | t4           | 0.8785586047704540 | 以#21 为基准计算 |
 
 
-| Finetune | dataset  | env    | train hours | TOTAL_UPDATES    | WARMUP_UPDATES | PEAK_LR  | MAX_SENTENCES | UPDATE_FREQ | **best_loss** | others                    | log file       |
-|----------|----------|--------|-------------|------------------|----------------|----------|---------------|-------------|---------------|---------------------------|----------------|
-| base     | ele      | 2*P100 | 1.5         | 5000             | 400            | 0.0005   | 2             | 2           | 1.77741       |                           | 0207_22:31.log |
-| large    | ele      | 2*P100 | 48          | <del>25000</del> | 2000           | 0.0001   | 2             | 64          | 1.35783       | **break on updates 7290** | 0208_13:11.log |
-| exp1     | ele      | 2*P100 | 10          | 1800             | 150            | 0.00003  | 2             | 64          | 1.37104       | 取消checkpoint_save       | 0210_21:12.log |
-| exp2     | ele-race | 2*P100 | 29.5        | 5000             | 400            | 0.0001   | 2             | 64          | 1.37473       |                           | 0211_11:51.log |
-| exp3     | ele      | 2*P100 | 7           | 1200             |                | 0.00001  | 2             | 64          | 1.34585       | fixed learning rate       | 0212_21:20.log |
-| exp4     | ele      | 2*P10  | 14          | 2400             |                | 0.000004 | 2             | 64          | **1.33823**   | fixed learning rate       | 0214_00:21.log |
+| Finetune | dataset  | env    | train hours | TOTAL_UPDATES    | WARMUP_UPDATES | PEAK_LR  | MAX_SENTENCES | UPDATE_FREQ | fp16   | **best_loss** | others                    | log file       |
+|----------|----------|--------|-------------|------------------|----------------|----------|---------------|-------------|--------|---------------|---------------------------|----------------|
+| base     | ele      | 2*P100 | 1.5         | 5000             | 400            | 0.0005   | 2             | 2           |        | 1.77741       |                           | 0207_22:31.log |
+| large    | ele      | 2*P100 | 48          | <del>25000</del> | 2000           | 0.0001   | 2             | 64          |        | 1.35783       | **break on updates 7290** | 0208_13:11.log |
+| exp1     | ele      | 2*P100 | 10          | 1800             | 150            | 0.00003  | 2             | 64          |        | 1.37104       | 取消checkpoint_save       | 0210_21:12.log |
+| exp2     | ele-race | 2*P100 | 29.5        | 5000             | 400            | 0.0001   | 2             | 64          |        | 1.37473       |                           | 0211_11:51.log |
+| exp3     | ele      | 2*P100 | 7           | 1200             |                | 0.00001  | 2             | 64          |        | 1.34585       | fixed learning rate       | 0212_21:20.log |
+| exp4     | ele      | 2*P100 | 14          | 2400             |                | 0.000004 | 2             | 64          |        | **1.33823**   | fixed learning rate       | 0214_00:21.log |
+| exp5     | ele      | 3*V100 |             | 2400             |                | 0.0005   | 16            | 48          | enable | 9.978         | fixed learning rate       | 0226_00:45.log |
+| exp6     | ele      | 2*V100 | 7.5         | 2400             | 100            | 0.0003   | 8             | 32          | enable | 9.932         | polynomial_decay          | 0228_08:58.log |
+| exp7     | ele      | 2*V100 | 5           | 2400             |                | 0.000004 | 2             | 64          | enable | 9.035         | fixed learning rate       | 0228_20:23.log |
+| exp8-1   | ele      | 2*V100 | 9           | 2400             |                | 0.000004 | 2             | 64          |        | 9.038         | fixed learning rate       | 0303_23:19.log |
 
 
 ### Analysis
