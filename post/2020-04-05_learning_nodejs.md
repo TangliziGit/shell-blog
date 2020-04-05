@@ -5,10 +5,7 @@
 1. `ack` 查找代码, 替代`grep -rn`  
 2. `zeal` 文档支持  
 3. `lsof -i:1080 | xargs killall` 杀死端口下进程  
-
-## module & frameworks
-
-1. `bluebrid` 提供性能最好的`Promise/a+`模块, 功能丰富, 兼容原声`Promise`
+4. `bluebrid` 提供性能最好的`Promise/a+`模块, 功能丰富, 兼容原声`Promise`
 
 
 ## CommonJS
@@ -21,6 +18,8 @@
 
 ## 异步
 
+1. `Promise`易于链式操作, `await`易于组合操作.  
+
 ### Promise
 
 0. `Promise/A+`规范，也就是实际上的业内推行的规范。es6也是采用的这种规范. 
@@ -28,8 +27,9 @@
 2. 可将嵌套式回调函数(异步)转变为链式, 避免因NodeJS的完全异步产生的`callback hell`  
 3. `Promise.prototype.then`方法返回一个新的`Promise`, 其`resolve`函数的参数是`then`的函数的返回值.
 4. `then` 方法所有的默认参数为`x => x`, `Promise`链呈现一个菱形执行链  
+5. `Promise`一旦创建, 其函数就开始异步执行(非惰性求值)  
 5. `Promise` 的api封装, 一般用法和链式用法:
-```
+```javascript
 // API封装
 function readFile(filename) {
     return new Promise((resolve, reject) => {
@@ -83,3 +83,42 @@ readFile('hello.txt')
 ```
 
 6. 其他方法`Promise.all`, `Promise.race`二者的`Promise`参数为并行的.  
+
+### async & await
+
+![](https://pic1.zhimg.com/v2-be8f674422c9f30ffeaee88477ad2c84_r.jpg)
+
+1. `async`将函数返回值包装成`Promise`对象, `await` 作用于`Promise`上, 等待异步的返回.  
+2. 当`await`发生时, `Promise`的拒绝状态由`try-catch`捕获.  
+3. 由于`Promise`创建后立即异步执行, 以下例子可以提升速度:
+```javascript
+const sleep = (time) => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => resolve("done"), time);
+    });
+};
+
+// slow
+async function timeTest() {
+  await sleep(3000);
+  await sleep(3000);
+  await sleep(3000);
+}
+
+// fast
+async function timeTest() {
+  const sleep1 = sleep(3000);
+  const sleep2 = sleep(3000);
+  const sleep3 = sleep(3000);
+
+  await sleep1;
+  await sleep2;
+  await sleep3;
+}
+```
+4. 注意`await`只能在`async`函数中执行, 一下代码提供一种执行思路:
+```javascript
+(async () => {
+    // ...
+})()
+```
