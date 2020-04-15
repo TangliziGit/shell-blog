@@ -122,3 +122,15 @@ async function timeTest() {
     // ...
 })()
 ```
+
+## 面向对象编程
+<https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Classes>
+<https://segmentfault.com/a/1190000015565616>
+
+### ES5与ES6实现继承的原理
+
+组合继承，即借用构造函数与原型链继承结合
+
+### 其他语言如何实现继承？
+
+TODO：python, jvm based, c++
