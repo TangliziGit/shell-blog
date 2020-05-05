@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Index</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+    ##nav##
+    <h1 id="title">Pages</h1>
+    <hr>
+
+    <div id="content">
+    <div>
+
+    <script>
+        let getList = function(name) {
+            let _date = name.substr(1, 4);
+            let id = '#list-' + _date;
+            let list = document.querySelector(id);
+            if (list !== null)
+                return list;
+
+            list = document.createElement('ol');
+            list.id = id.substr(1);
+            let details = document.createElement('details');
+            let summary = document.createElement('summary');
+            summary.innerText = _date;
+            details.appendChild(summary);
+            details.appendChild(list);
+            document.querySelector('#content').appendChild(details);
+
+            return list;
+        }
+
+        let posts = `{{ls -1r page/*.html | sed "s/page//g"}}`.split('|||');
+
+        for (let name of posts) {
+            let link = document.createElement('a');
+            link.innerText = name.split('_').join(' ');
+            link.href = "/page" + name;
+            console.log(link.href);
+
+            let li = document.createElement("li");
+            li.appendChild(link);
+
+            let list = getList(name);
+            list.appendChild(li);
+        }
+
+        let details = document.querySelectorAll('details')
+        for (var i=0; i<3; i++)
+            details[i].setAttribute('open', '');
+    </script>
+</body>
+</html>
