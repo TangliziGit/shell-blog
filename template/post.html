@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="/static/katex.min.css">
     <link rel="stylesheet" href="/static/texmath.css">
     <link rel="stylesheet" href="/static/gruvbox-light.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
     <script src="/static/highlight.min.js"></script>
     <script src="/static/katex.min.js"></script>
     <script src="/static/texmath.js"></script>
@@ -19,6 +21,7 @@
     <hr>
 
     <article id="content" class="markdown-body content"></article>
+    <div id="gitalk-container" class="content"></div>
 
     <script>
         let filename = new URL(window.location).searchParams.get("name");
@@ -43,7 +46,23 @@
         }).catch(error => {
             console.log(error);
         });
-
     </script>
+
+	<script>
+		const gitalk = new Gitalk({
+		  clientID: '372031630877aadeefd6',
+		  clientSecret: '3e88d8786deee740d2eebe9726b47be61f99855e',
+		  repo: 'blog-comments',
+		  owner: 'TangliziGit',
+		  admin: ['TangliziGit'],
+		  id: filename,
+          title: name,
+          body: "Ref: " + location.href,
+		  distractionFreeMode: false
+		});
+
+		gitalk.render('gitalk-container');
+	</script>
+	
 </body>
 </html>
