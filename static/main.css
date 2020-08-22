@@ -12,3 +12,10 @@ nav ul li {
     float: right;
     padding: 0px 4px;
 }
+
+@media (min-width: 960px) {
+    .content {
+        margin: auto;
+        max-width: 800px;
+    }
+}
