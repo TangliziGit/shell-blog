@@ -70,7 +70,7 @@
 		  repo: 'blog-comments',
 		  owner: 'TangliziGit',
 		  admin: ['TangliziGit'],
-		  id: filename.slice(11).slice(0, 50),
+		  id: filename.slice(11).slice(0, 50).replace(/^\[.+?\]/, ""),
           title: _date + " " + name,
           body: "Ref: " + location.href,
           labels: tags,
