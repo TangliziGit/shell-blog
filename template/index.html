@@ -10,45 +10,60 @@
     <h1 id="title">Index</h1>
     <hr>
 
-    <div id="content" class="content" >
-    <div>
+    <div id="content" class="content">
+        <ul id="list-top" style="margin-bottom: 30px;"></ul>
+        <hr style="border: dashed 1px"/>
+    </div>
 
     <script>
-        let getList = function(name) {
-            let _date = name.substr(1, 4);
-            let id = '#list-' + _date;
+        const getList = function(name, tags) {
+            if (tags.includes("top"))
+                return document.querySelector("#list-top");
+
+            const _date = name.substr(1, 4);
+            const id = '#list-' + _date;
             let list = document.querySelector(id);
-            if (list !== null)
-                return list;
+            if (list !== null) return list;
 
             list = document.createElement('ol');
             list.id = id.substr(1);
-            let details = document.createElement('details');
-            let summary = document.createElement('summary');
+
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
             summary.innerText = _date;
             details.appendChild(summary);
             details.appendChild(list);
             document.querySelector('#content').appendChild(details);
 
             return list;
-        }
+        };
+        
+        const getTags = function(filename) {
+            const tags = filename.match(/(?<=_\[).+(?=\])/);
+            if (tags === null) return [];
+
+            return tags[0].toLowerCase().split(',');
+        };
+        
 
         let posts = `{{ls -1r post/*.md | sed "s/post//g"}}`.split('|||');
 
-        for (let name of posts) {
-            let link = document.createElement('a');
+        for (const name of posts) {
+            const tags = getTags(name);
+
+            const link = document.createElement('a');
             link.innerText = name.split('_').join(' ');
             link.href = "/post.sh?name=" + name.substr(1);
 
-            let li = document.createElement("li");
+            const li = document.createElement("li");
             li.appendChild(link);
 
-            let list = getList(name);
+            const list = getList(name, tags);
             list.appendChild(li);
         }
 
-        let details = document.querySelectorAll('details')
-        for (var i=0; i<3; i++)
+        const details = document.querySelectorAll('details');
+        for (let i=0; i<3; i++)
             details[i].setAttribute('open', '');
     </script>
 </body>

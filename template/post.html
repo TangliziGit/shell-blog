@@ -17,18 +17,33 @@
 </head>
 <body>
     ##nav##
-    <h1 id="title"></h1>
+    <div style="text-align: right">
+        <h1 id="title"></h1>
+        <small id="date"></small>
+    </div>
     <hr>
 
     <article id="content" class="markdown-body content"></article>
     <div id="gitalk-container" class="content"></div>
 
     <script>
+        const getTags = function(filename) {
+            const tags = filename.match(/(?<=_\[).+(?=\])/);
+            if (tags === null) return [];
+
+            return tags[0].toLowerCase().split(',');
+        };
+
         let filename = new URL(window.location).searchParams.get("name");
-        let name = filename.split('_').join(' ')
+        let split = filename.split('_');
+        let _date = split[0];
+        let name = split.slice(1).join(' ').replace(/^\[.+?\]/, "");
+        let tags = getTags(filename);
+        console.log(tags);
         
         document.title = "post - " + name;
-        document.querySelector('#title').innerHTML = name.replace(' ', '<br />');
+        document.querySelector('#title').innerHTML = name;
+        document.querySelector('#date').innerHTML = _date;
         fetch("/post/" + filename).then(resp => resp.text()).then(resp => {
             const tm = texmath.use(katex);
             const md = window.markdownit({html: true, linkify: true, typographer: true, highlight: function (str, lang) {
@@ -58,6 +73,7 @@
 		  id: filename,
           title: name,
           body: "Ref: " + location.href,
+          labels: tags,
 		  distractionFreeMode: false
 		});
 
