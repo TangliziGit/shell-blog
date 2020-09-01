@@ -1,18 +1,26 @@
-<!-- vim-markdown-toc Marked -->
 
-* [理解 std::mem::swap](#理解-std::mem::swap)
+<!-- vim-markdown-toc GitLab -->
+
+* [Rust 细节](#rust-细节)
+    * [理解 std::mem::swap](#理解-stdmemswap)
         * [总结](#总结)
         * [分析](#分析)
-* [理解 core::iter::Range](#理解-core::iter::range)
-        * [总结](#总结)
-        * [分析](#分析)
+    * [理解 core::iter::Range](#理解-coreiterrange)
+        * [总结](#总结-1)
+        * [分析](#分析-1)
+    * [理解 std::mem::take](#理解-stdmemtake)
+        * [总结](#总结-2)
+        * [分析](#分析-2)
 
 <!-- vim-markdown-toc -->
+
+
+# Rust 细节
 
 记录一些rust学习过程中的细节。这些细节都是碎片式的，不容易整理成一个主题，所以暂时在notes标签下列出来。
 
 
-# 理解 std::mem::swap
+## 理解 std::mem::swap
 
 ### 总结
 
@@ -24,7 +32,7 @@
 
 它底层使用了编译器内置的函数，本质上是llvm提供的函数。
 
-`std::mem::swap`与`std::mem::replace`的区别是replace会丢弃src的所有权。
+`std::mem::swap`与`std::mem::replace`的区别只是replace会返回目标的所有权。
 
 下面是`swap`的源码：
 ```rust
@@ -151,7 +159,7 @@ llvm见<https://www.llvm.org/docs/LangRef.html>
 
 
 
-# 理解 core::iter::Range
+## 理解 core::iter::Range
 
 ### 总结
 
@@ -196,5 +204,23 @@ pub fn replace<T>(dest: &mut T, mut src: T) -> T {
 }
 ```
 
-`std::mem::swap`与`std::mem::replace`的区别只是replace会丢弃src的所有权。
+`std::mem::swap`与`std::mem::replace`的区别只是replace会返回目标的所有权。
 
+
+## 理解 std::mem::take
+
+### 总结
+
+只是用default值来与原来的内容做`replace`，移动原值的所有权。
+常用于从`Option`中取所有权。
+
+### 分析
+
+源码如下：
+```rust
+#[inline]
+#[stable(feature = "mem_take", since = "1.40.0")]
+pub fn take<T: Default>(dest: &mut T) -> T {
+    replace(dest, T::default())
+}
+```
