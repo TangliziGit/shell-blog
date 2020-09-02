@@ -11,6 +11,9 @@
     * [理解 std::mem::take](#理解-stdmemtake)
         * [总结](#总结-2)
         * [分析](#分析-2)
+    * [理解 `？`错误处理](#理解-错误处理)
+        * [总结](#总结-3)
+        * [分析](#分析-3)
 
 <!-- vim-markdown-toc -->
 
@@ -207,6 +210,7 @@ pub fn replace<T>(dest: &mut T, mut src: T) -> T {
 `std::mem::swap`与`std::mem::replace`的区别只是replace会返回目标的所有权。
 
 
+
 ## 理解 std::mem::take
 
 ### 总结
@@ -222,5 +226,34 @@ pub fn replace<T>(dest: &mut T, mut src: T) -> T {
 #[stable(feature = "mem_take", since = "1.40.0")]
 pub fn take<T: Default>(dest: &mut T) -> T {
     replace(dest, T::default())
+}
+```
+
+
+
+## 理解 `？`错误处理
+
+### 总结
+是`try?`的一个语法糖，内部通过match来返回正常值、return错误。
+
+### 分析
+
+```
+#[macro_export]
+#[stable(feature = "rust1", since = "1.0.0")]
+#[rustc_deprecated(since = "1.39.0", reason = "use the `?` operator instead")]
+#[doc(alias = "?")]
+macro_rules! r#try {
+    ($expr:expr) => {
+        match $expr {
+            $crate::result::Result::Ok(val) => val,
+            $crate::result::Result::Err(err) => {
+                return $crate::result::Result::Err($crate::convert::From::from(err));
+            }
+        }
+    };
+    ($expr:expr,) => {
+        $crate::r#try!($expr)
+    };
 }
 ```
