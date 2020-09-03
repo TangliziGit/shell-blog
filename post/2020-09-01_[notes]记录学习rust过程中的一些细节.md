@@ -218,6 +218,9 @@ pub fn replace<T>(dest: &mut T, mut src: T) -> T {
 只是用default值来与原来的内容做`replace`，移动原值的所有权。
 常用于从`&mut Option`中取所有权。
 不使用`take`的话，会存在`cannot move out of 'foo' which is behind a mutable reference`错误。
+同时注意，如果使用`take`意味着原位置将变为`default`。
+所以当数据结构不需要这个值时，`take`才适用。
+比如链表删除节点。
 
 ### 分析
 
