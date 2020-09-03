@@ -14,6 +14,8 @@
     * [理解 `？`错误处理](#理解-错误处理)
         * [总结](#总结-3)
         * [分析](#分析-3)
+    * [如何构建更好的 Rust CLI 应用](#如何构建更好的-rust-cli-应用)
+* [资料](#资料)
 
 <!-- vim-markdown-toc -->
 
@@ -261,3 +263,24 @@ macro_rules! r#try {
     };
 }
 ```
+
+
+
+## 如何构建更好的 Rust CLI 应用
+
+好的CLI应用应该包括：
+1. 参数获取: `clap`
+2. 配置文件: `dotenv`
+3. 环境变量: `env::vars()` `env::var_os()`是应用间调用的一个方法，如`Cargo`和`rustc`
+4. 错误处理: 自定义`enum`式错误，注意实现`From<io::Error>`，`Display`等
+5. 杂项：错误输出`eprintln`，退出码`process::exit`
+
+另外每个实际项目都应该编写rust文档，<https://rust-lang.github.io/api-guidelines/documentation.html>这里提供了编写更好文档的一些要求。
+
+
+
+# 资料
+
+- [Write a Good CLI Program](https://qiita.com/tigercosmos/items/678f39b1209e60843cc3)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+- [rust-lang-nursery](https://github.com/rust-lang-nursery)
