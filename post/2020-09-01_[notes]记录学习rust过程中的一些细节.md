@@ -15,6 +15,8 @@
         * [总结](#总结-3)
         * [分析](#分析-3)
     * [如何构建更好的 Rust CLI 应用](#如何构建更好的-rust-cli-应用)
+    * [关于错误处理的设计](#关于错误处理的设计)
+        * [如何自定义`Error`](#如何自定义error)
 * [资料](#资料)
 
 <!-- vim-markdown-toc -->
@@ -272,15 +274,44 @@ macro_rules! r#try {
 1. 参数获取: `clap`
 2. 配置文件: `dotenv`
 3. 环境变量: `env::vars()` `env::var_os()`是应用间调用的一个方法，如`Cargo`和`rustc`
-4. 错误处理: 自定义`enum`式错误，注意实现`From<io::Error>`，`Display`等
+4. 错误处理: 见下文，同时主函数应只接受参数，同时接受内部的`Result`使用`process::exit(1)`退出
 5. 杂项：错误输出`eprintln`，退出码`process::exit`
 
 另外每个实际项目都应该编写rust文档，<https://rust-lang.github.io/api-guidelines/documentation.html>这里提供了编写更好文档的一些要求。
 
 
 
-# 资料
+## 关于错误处理的设计
+
+- 如果你在写短小的演示代码（比如算法题目）：
+使用`unwrap`和`except`处理错误
+
+- 如果你在写一个简单的程序（且不怕别人接手的时候感到难受）：
+使用`Box<dyn Error>`或`Box<dyn Error + Send + Sync>`。
+另一个省事的选择是使用`anyhow::Error`，他会自动打印backtrace。
+
+- 如果你在写一个正式的项目：
+定义自己的`Error`，并实现`Error` trait 和 `From` trait。
+同时在`Option`和`Result`上使用组合子和`?`操作符。
+常用的组合子包括：`map`, `and_then`, `unwrap_or`, `unwrap_or_else`, `ok_or`用于`Option`转`Result`.
+
+### 如何自定义`Error`
+
+1. 使用`enum`
+    可以存各种其他库的错误类型
+2. 实现`Error: Debug + Display` trait 中的`description`和`cause`
+    前者便于展示错误原因，后者用于检查错误链
+    （同时`Error`可以被装入`Box<dyn Error>`中，不过在自己的库中，`Result<_, MyError>`更为常见
+3. 实现`From<OtherError>` trait 
+    便于错误向上转换到我们的错误类型
+    注意`try!`中的模式匹配，显式的使用`From::from`来转换`Error`
+
+
+
+# 参考资料
 
 - [Write a Good CLI Program](https://qiita.com/tigercosmos/items/678f39b1209e60843cc3)
 - [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
 - [rust-lang-nursery](https://github.com/rust-lang-nursery)
+- [Error Handling in Rust](https://blog.burntsushi.net/rust-error-handling/)
+
