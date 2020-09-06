@@ -226,6 +226,8 @@ pub fn replace<T>(dest: &mut T, mut src: T) -> T {
 所以当数据结构不需要这个值时，`take`才适用。
 比如链表删除节点。
 
+
+
 ### 分析
 
 源码如下：
@@ -242,11 +244,13 @@ pub fn take<T: Default>(dest: &mut T) -> T {
 ## 理解 `？`错误处理
 
 ### 总结
-是`try?`的一个语法糖，内部通过match来返回正常值、return错误。
+是`try!`的一个语法糖，内部通过match来返回正常值、return错误。
+
+
 
 ### 分析
 
-```
+```rust
 #[macro_export]
 #[stable(feature = "rust1", since = "1.0.0")]
 #[rustc_deprecated(since = "1.39.0", reason = "use the `?` operator instead")]
@@ -283,28 +287,40 @@ macro_rules! r#try {
 
 ## 关于错误处理的设计
 
-- 如果你在写短小的演示代码（比如算法题目）：
+- 如果你在写短小的演示代码（比如算法题目）：  
 使用`unwrap`和`except`处理错误
 
-- 如果你在写一个简单的程序（且不怕别人接手的时候感到难受）：
-使用`Box<dyn Error>`或`Box<dyn Error + Send + Sync>`。
-另一个省事的选择是使用`anyhow::Error`，他会自动打印backtrace。
+- 如果你在写一个简单的程序（且不怕别人接手的时候感到难受）：  
+使用`Box<dyn Error>`或`Box<dyn Error + Send + Sync>`。  
+另一个省事的选择是使用`anyhow::Error`，他会自动打印backtrace。  
 
-- 如果你在写一个正式的项目：
-定义自己的`Error`，并实现`Error` trait 和 `From` trait。
-同时在`Option`和`Result`上使用组合子和`?`操作符。
-常用的组合子包括：`map`, `and_then`, `unwrap_or`, `unwrap_or_else`, `ok_or`用于`Option`转`Result`.
+- 如果你在写一个正式的项目：  
+  定义自己的`Error`，并实现`Error` trait 和 `From` trait。  
+  同时在`Option`和`Result`上使用组合子和`?`操作符。  
+  常用的组合子包括：`map`, `and_then`, `unwrap_or`, `unwrap_or_else`, `ok_or`用于`Option`转`Result`.
+
+  
 
 ### 如何自定义`Error`
 
-1. 使用`enum`
+1. 使用`enum`  
     可以存各种其他库的错误类型
-2. 实现`Error: Debug + Display` trait 中的`description`和`cause`
-    前者便于展示错误原因，后者用于检查错误链
-    （同时`Error`可以被装入`Box<dyn Error>`中，不过在自己的库中，`Result<_, MyError>`更为常见
-3. 实现`From<OtherError>` trait 
-    便于错误向上转换到我们的错误类型
-    注意`try!`中的模式匹配，显式的使用`From::from`来转换`Error`
+2. 实现`Error: Debug + Display` trait 中的`description`和`cause ` 
+    前者便于展示错误原因，后者用于检查错误链  
+    （同时`Error`可以被装入`Box<dyn Error>`中，不过在自己的库中，`Result<_, MyError>`更为常见  
+3. 实现`From<OtherError>` trait   
+    便于错误向上转换到我们的错误类型  
+    注意`try!`中的模式匹配，显式的使用`From::from`来转换`Error`  
+
+
+
+## 常用框架
+
+- `clap`：CLI参数读取
+- `serde`：序列化 & 反序列化
+- ~~`Rayon`：简单易用的并行计算库~~
+- ~~`Crossbeam`：扩展标准库功能的并发库~~
+- ~~`Tokio`：Actor模型库~~
 
 
 
