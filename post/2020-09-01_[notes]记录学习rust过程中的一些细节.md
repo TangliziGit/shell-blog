@@ -17,7 +17,9 @@
     * [如何构建更好的 Rust CLI 应用](#如何构建更好的-rust-cli-应用)
     * [关于错误处理的设计](#关于错误处理的设计)
         * [如何自定义`Error`](#如何自定义error)
-* [资料](#资料)
+        * [如何使用`failure`第三方库](#如何使用failure第三方库)
+    * [常用框架](#常用框架)
+* [参考资料](#参考资料)
 
 <!-- vim-markdown-toc -->
 
@@ -312,6 +314,65 @@ macro_rules! r#try {
     便于错误向上转换到我们的错误类型  
     注意`try!`中的模式匹配，显式的使用`From::from`来转换`Error`  
 
+
+
+### 如何使用`failure`第三方库
+
+化简一下第三方库文档，便于记忆使用
+1. 原型或不需要错误链的情况  
+    使用`Rusult<(), failure::Error>`和`format_err!()`
+    前者可以转换`impl Fail`对象，后者直接返回字符串错误
+2. 大型项目或需要错误链情况  
+    自定义`Error`和`ErrorKind`
+    例：
+    ```rust
+    #[derive(Debug)]
+    struct MyError {
+        inner: Context<MyErrorKind>,
+    }
+
+    #[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
+    enum MyErrorKind {
+        #[fail(display = "A contextual error message.")]
+        OneVariant,
+    }
+
+    // 样板代码
+    impl Fail for MyError {
+        fn cause(&self) -> Option<&Fail> {
+            self.inner.cause()
+        }
+
+        fn backtrace(&self) -> Option<&Backtrace> {
+            self.inner.backtrace()
+        }
+    }
+
+    impl Display for MyError {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            Display::fmt(&self.inner, f)
+        }
+    }
+
+    // 样板代码
+    impl MyError {
+        pub fn kind(&self) -> MyErrorKind {
+            *self.inner.get_context()
+        }
+    }
+
+    impl From<MyErrorKind> for MyError {
+        fn from(kind: MyErrorKind) -> MyError {
+            MyError { inner: Context::new(kind) }
+        }
+    }
+
+    impl From<Context<MyErrorKind>> for MyError {
+        fn from(inner: Context<MyErrorKind>) -> MyError {
+            MyError { inner: inner }
+        }
+    }
+    ```
 
 
 ## 常用框架
