@@ -14,6 +14,10 @@
     * [理解 `？`错误处理](#理解-错误处理)
         * [总结](#总结-3)
         * [分析](#分析-3)
+    * [理解`flatten`](#理解flatten)
+        * [总结](#总结-4)
+        * [分析](#分析-4)
+        * [举例](#举例)
     * [如何构建更好的 Rust CLI 应用](#如何构建更好的-rust-cli-应用)
     * [关于错误处理的设计](#关于错误处理的设计)
         * [如何自定义`Error`](#如何自定义error)
@@ -271,6 +275,98 @@ macro_rules! r#try {
     };
 }
 ```
+
+
+
+## 理解`flatten`
+
+### 总结
+
+`Flatten`调用并返回内容的`into_iter`。
+
+### 分析
+
+首先来看`Flatten`trait，它包含了一个`FlattenCompat`。
+注意！此处的`Item`必须实现`IntoIterator`，也就是只有`IntoIterator`作为`Item`才可以满足`Flatten`。
+
+```rust
+impl<I: Iterator<Item: IntoIterator>> Flatten<I> {
+    pub(in super::super) fn new(iter: I) -> Flatten<I> {
+        Flatten { inner: FlattenCompat::new(iter) }
+    }
+}
+
+#[inline]
+fn next(&mut self) -> Option<U::Item> {
+    self.inner.next()
+}
+```
+
+接下来看`FlattenCompat`，它包含了`Fuse`。
+`Fuse`是熔断迭代器，当首次遇到`None`时，之后的内容就一直是`None`了。
+
+```rust
+impl<I, U> FlattenCompat<I, U>
+where
+    I: Iterator,
+{
+    fn new(iter: I) -> FlattenCompat<I, U> {
+        FlattenCompat { iter: iter.fuse(), frontiter: None, backiter: None }
+    }
+}
+
+#[inline]
+fn next(&mut self) -> Option<U::Item> {
+    loop {
+        if let Some(ref mut inner) = self.frontiter {
+            match inner.next() {
+                None => self.frontiter = None,
+                elt @ Some(_) => return elt,
+            }
+        }
+        match self.iter.next() {
+            None => return self.backiter.as_mut()?.next(),
+            Some(inner) => self.frontiter = Some(inner.into_iter()),
+        }
+    }
+}
+```
+
+那么事实上，`Flatten`只是调用了`Item`的`into_iter`，同时再做`Option`解构，将所有`Some`内容返回。
+
+### 举例
+
+```rust
+let xs = (0..10)
+    .map(|x| {
+        if x % 2 == 0 {
+            Ok(x)
+        } else {
+            Err("xxx")
+        }
+    })
+    .flatten()
+    .collect::<Vec<i32>>();
+
+println!("{:?}", xs);
+```
+
+我们分析一下:
+1. `flatten`操作调用`Result`的`into_iter`
+2. `Result`的`IntoIterator`如下：
+    ```rust
+    #[inline]
+    fn into_iter(self) -> IntoIter<T> {
+        IntoIter { inner: self.ok() }
+    }
+    ```
+    实际得到内容为`Ok`的`IntoIterator<Option<i32>>`
+3. `inner.next()`并解构，得到`i32`
+4. 输出所有偶数
+
+简单分析的话（`Flatten`调用并返回内容的`into_iter`）：
+那么`Result`的`IntoIterator`返回了`Ok`的`Option<T>`，这个值直接作为`Flatten`迭代器的返回值。
+那么通过`collect`，结果就是所有`Ok`的内容。
 
 
 
