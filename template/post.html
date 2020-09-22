@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/static/texmath.css">
     <link rel="stylesheet" href="/static/gruvbox-light.min.css">
     <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+    <script src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"></script>
     <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
     <script src="/static/highlight.min.js"></script>
     <script src="/static/katex.min.js"></script>
@@ -25,6 +26,12 @@
 
     <article id="content" class="markdown-body content"></article>
     <div id="gitalk-container" class="content"></div>
+
+    <script>
+        window.addEventListener('load', () => {
+            new Darkmode().showWidget();
+        });
+    </script>
 
     <script>
         const getTags = function(filename) {
