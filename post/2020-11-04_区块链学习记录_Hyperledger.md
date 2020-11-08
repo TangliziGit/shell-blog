@@ -23,6 +23,11 @@
         * [使用CA创建身份和MSP](#使用ca创建身份和msp)
         * [部署Peer节点和Ordering节点](#部署peer节点和ordering节点)
     * [部署生产网络 - 实例](#部署生产网络-实例)
+        * [创建并启动CA](#创建并启动ca)
+        * [注册登录并生成各个组织](#注册登录并生成各个组织)
+        * [生成创世区块](#生成创世区块)
+        * [创建并运行节点](#创建并运行节点)
+        * [总结](#总结)
 
 <!-- vim-markdown-toc -->
 
@@ -520,3 +525,1174 @@ Fabric网络中第一个安装的组件是CA。因为节点的证书要创建在
 
 ## 部署生产网络 - 实例
 
+这一部分将会展示一个简单网络的部署过程，网络结构包括两种组织`peerOrgs`和`ordererOrg`。其中`peerOrgs`包括两个组织`org1`和`org2`。同时引入三个`fabric-ca`，作为他们的`enrollment CA`和`TLS CA`，用来管理注册登录和通信安全。
+
+
+
+### 创建并启动CA
+
+**目的**：用来生成各个组织的MSP文件夹、节点和用户的身份、TLS证书
+
+**输入**：
+
+1. 编写`docker-compose-fabric-ca.yaml`：
+   1. 声明环境变量（用这种方式配置CA）：目录位置、CA名字、端口、TLS启用
+   2. 映射目录至本地
+   3. 覆盖默认命令：启动`fabric-ca-server`以引导管理员来构建默认配置
+   4. 映射`port`、声明默认网络、容器名字
+
+**输出**：
+
+1. 一堆默认的CA配置：
+
+   ```
+   orgs/
+   └── ca
+       ├── ordererOrg
+       │   ├── ca-cert.pem
+       │   ├── fabric-ca-server-config.yaml
+       │   ├── fabric-ca-server.db
+       │   ├── IssuerPublicKey
+       │   ├── IssuerRevocationPublicKey
+       │   ├── msp
+       │   │   ├── cacerts
+       │   │   ├── keystore
+       │   │   │   ├── 400846d6447617143a334d2589905df1a1cc1d7582288e192f01ceed8d3d8778_sk
+       │   │   │   ├── ab0629bc01fd0dfd3b7a29a928dbf299b66781cfda4c2ac2016e7d9a47b27362_sk
+       │   │   │   ├── IssuerRevocationPrivateKey
+       │   │   │   └── IssuerSecretKey
+       │   │   ├── signcerts
+       │   │   └── user
+       │   └── tls-cert.pem
+       ├── org1
+       │   ├── ca-cert.pem
+       │   ├── fabric-ca-server-config.yaml
+       │   ├── fabric-ca-server.db
+       │   ├── IssuerPublicKey
+       │   ├── IssuerRevocationPublicKey
+       │   ├── msp
+       │   │   ├── cacerts
+       │   │   ├── keystore
+       │   │   │   ├── 410fa1ed798486277bb88f3f6d1ee655fd092a677f9b643ef3682a1b7e895ebd_sk
+       │   │   │   ├── b39898c4018a773724e679c2dfb3274e2aa1caa15bde395f0a7a03d431843164_sk
+       │   │   │   ├── IssuerRevocationPrivateKey
+       │   │   │   └── IssuerSecretKey
+       │   │   ├── signcerts
+       │   │   └── user
+       │   └── tls-cert.pem
+       └── org2
+           ├── ca-cert.pem
+           ├── fabric-ca-server-config.yaml
+           ├── fabric-ca-server.db
+           ├── IssuerPublicKey
+           ├── IssuerRevocationPublicKey
+           ├── msp
+           │   ├── cacerts
+           │   ├── keystore
+           │   │   ├── 5f22fa39ebd1deeb1a93ceb178f2d9e34ebc69b304b9b18656cd61d9c7267c25_sk
+           │   │   ├── 668c4e71353ac8c0773230d79d3c716caaf5276a6c965b986de85dba35128a15_sk
+           │   │   ├── IssuerRevocationPrivateKey
+           │   │   └── IssuerSecretKey
+           │   ├── signcerts
+           │   └── user
+           └── tls-cert.pem
+   
+   19 directories, 30 files
+   ```
+
+   
+
+**代码**：
+
+```shell
+IMAGE_TAG="latest" docker-compose -f docker-compose-fabric-ca.yaml up -d
+```
+
+
+
+注意：需要等待`docker-compose`启动并创建好默认配置，再进行下一个步骤。
+
+
+
+### 注册登录并生成各个组织
+
+**目的**：用刚才的CA，生成MSP文件夹、节点和用户的身份、TLS证书
+
+**输入**：
+
+1. CA生成的对应组织的TLS证书（`orgs/ca/org1/tls-cert.pem`，每次CLI请求都需要）
+2. 组织的MSP配置（`orgs/peerOrgs/org1.tanglizi.one/msp/config.yaml`）
+3. 节点的MSP配置（`orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/msp/config.yaml`）
+
+**输出**：
+
+1. 组织MSP、节点MSP和TLS文件（CA证书、自己的数字签名、自己的私钥）、账户MSP
+
+   ```
+   orgs
+   ├── ca
+   │   └── ...
+   └── peerOrgs
+       └── org1.tanglizi.one
+           ├── ca
+           │   └── ca.org1.tanglizi.one-cert.pem
+           ├── fabric-ca-client-config.yaml
+           ├── msp
+           │   ├── cacerts
+           │   │   └── localhost-7054-ca-org1.pem
+           │   ├── config.yaml
+           │   ├── IssuerPublicKey
+           │   ├── IssuerRevocationPublicKey
+           │   ├── keystore
+           │   │   └── 64d65c3f2268740db68925bfc4708978d49bdb254b1c4d8c6f14cbce0fcd9ad4_sk
+           │   ├── signcerts
+           │   │   └── cert.pem
+           │   ├── tlscacerts
+           │   │   └── ca.crt
+           │   └── user
+           ├── peers
+           │   └── peer0.org1.tanglizi.one
+           │       ├── msp
+           │       │   ├── cacerts
+           │       │   │   └── localhost-7054-ca-org1.pem
+           │       │   ├── config.yaml
+           │       │   ├── IssuerPublicKey
+           │       │   ├── IssuerRevocationPublicKey
+           │       │   ├── keystore
+           │       │   │   └── adaf2a7e1d597406406d480b88359487f0488c19a29773b34093bc4d8f68ef2e_sk
+           │       │   ├── signcerts
+           │       │   │   └── cert.pem
+           │       │   └── user
+           │       └── tls
+           │           ├── cacerts
+           │           ├── ca.crt
+           │           ├── IssuerPublicKey
+           │           ├── IssuerRevocationPublicKey
+           │           ├── keystore
+           │           │   └── e4689ad83af670e10ef8a31245dd24f0a826cfe30c47c438d138e53e99f5b29f_sk
+           │           ├── server.crt
+           │           ├── server.key
+           │           ├── signcerts
+           │           │   └── cert.pem
+           │           ├── tlscacerts
+           │           │   └── tls-localhost-7054-ca-org1.pem
+           │           └── user
+           ├── tlsca
+           │   └── tlsca.org1.tanglizi.one-cert.pem
+           └── users
+               ├── Admin@org1.tanglizi.one
+               │   └── msp
+               │       ├── cacerts
+               │       │   └── localhost-7054-ca-org1.pem
+               │       ├── config.yaml
+               │       ├── IssuerPublicKey
+               │       ├── IssuerRevocationPublicKey
+               │       ├── keystore
+               │       │   └── c919806cd08217a375e12dd9213cd9bf4371ecce4cbf133999e5fe022a3efc9a_sk
+               │       ├── signcerts
+               │       │   └── cert.pem
+               │       └── user
+               └── User1@org1.tanglizi.one
+                   └── msp
+                       ├── cacerts
+                       │   └── localhost-7054-ca-org1.pem
+                       ├── config.yaml
+                       ├── IssuerPublicKey
+                       ├── IssuerRevocationPublicKey
+                       ├── keystore
+                       │   └── 3f1c51648844704bdd250d3b71e345ac5222ce36a3d681aaa117192faefce18f_sk
+                       ├── signcerts
+                       │   └── cert.pem
+                       └── user
+   
+   55 directories, 66 files
+   ```
+
+   
+
+**代码**：
+
+1. 登录本组织CA的admin账户，**作用？**
+
+   ```shell
+   fabric-ca-client enroll -u https://admin:adminpw@localhost:7054 --caname ca-org1 --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+   ```
+
+2. 生成组织MSP配置，**如何编写？**
+
+   ```shell
+   echo 'NodeOUs:
+     Enable: true
+     ClientOUIdentifier:
+       Certificate: cacerts/localhost-7054-ca-org1.pem
+       OrganizationalUnitIdentifier: client
+     PeerOUIdentifier:
+       Certificate: cacerts/localhost-7054-ca-org1.pem
+       OrganizationalUnitIdentifier: peer
+     AdminOUIdentifier:
+       Certificate: cacerts/localhost-7054-ca-org1.pem
+       OrganizationalUnitIdentifier: admin
+     OrdererOUIdentifier:
+       Certificate: cacerts/localhost-7054-ca-org1.pem
+       OrganizationalUnitIdentifier: orderer' > ${PWD}/orgs/peerOrgs/org1.tanglizi.one/msp/config.yaml
+   ```
+
+3. 注册所有节点和账户
+
+   ```shell
+   fabric-ca-client register --caname ca-org1 --id.name peer0 --id.secret peer0pw --id.type peer --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+   
+   fabric-ca-client register --caname ca-org1 --id.name user1 --id.secret user1pw --id.type client --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+   
+   fabric-ca-client register --caname ca-org1 --id.name org1admin --id.secret org1adminpw --id.type admin --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+   ```
+
+4. 登录所有`peer`节点，并生成MSP和TLS证书，并复制到正确位置
+
+   1. 登录`peer`节点并生成本地MSP
+
+      ```shell
+      fabric-ca-client enroll -u https://peer0:peer0pw@localhost:7054 --caname ca-org1 -M ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/msp --csr.hosts peer0.org1.tanglizi.one --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+      
+      cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/msp/config.yaml \
+         ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/msp/config.yaml
+       
+      ```
+
+   2. 登录`peer`节点并生成TLS证书，**`enrollment.profile`作用？**
+
+      ```shell
+      fabric-ca-client enroll -u https://peer0:peer0pw@localhost:7054 --caname ca-org1 -M ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls --enrollment.profile tls --csr.hosts peer0.org1.tanglizi.one --csr.hosts localhost --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+      ```
+
+   3. 复制TLS证书、数字签名和私钥，到节点根目录和组织根目录
+
+      ```shell
+        cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/tlscacerts/* \
+           ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/ca.crt
+        cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/signcerts/* \
+           ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/server.crt
+        cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/keystore/* \
+           ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/server.key
+        
+        cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/tlscacerts/* \
+           ${PWD}/orgs/peerOrgs/org1.tanglizi.one/msp/tlscacerts/ca.crt
+        cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls/tlscacerts/* \
+           ${PWD}/orgs/peerOrgs/org1.tanglizi.one/tlsca/tlsca.org1.tanglizi.one-cert.pem
+        cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/msp/cacerts/* \
+           ${PWD}/orgs/peerOrgs/org1.tanglizi.one/ca/ca.org1.tanglizi.one-cert.pem
+      ```
+
+5. 登录所有账户，并生成MSP
+
+   ```shell
+   fabric-ca-client enroll -u https://user1:user1pw@localhost:7054 --caname ca-org1 -M ${PWD}/orgs/peerOrgs/org1.tanglizi.one/users/User1@org1.tanglizi.one/msp --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+   
+   cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/msp/config.yaml \
+      ${PWD}/orgs/peerOrgs/org1.tanglizi.one/users/User1@org1.tanglizi.one/msp/config.yaml
+     
+   fabric-ca-client enroll -u https://org1admin:org1adminpw@localhost:7054 --caname ca-org1 -M ${PWD}/orgs/peerOrgs/org1.tanglizi.one/users/Admin@org1.tanglizi.one/msp --tls.certfiles ${PWD}/orgs/ca/org1/tls-cert.pem
+   
+   cp ${PWD}/orgs/peerOrgs/org1.tanglizi.one/msp/config.yaml \
+      ${PWD}/orgs/peerOrgs/org1.tanglizi.one/users/Admin@org1.tanglizi.one/msp/config.yaml
+   }
+   ```
+
+
+
+注意：排序节点也是完全一样的流程，只不过是`peer`改为`orderer`就是了
+
+
+
+### 生成创世区块
+
+**目的**：用以启动排序系统
+
+**输入**：
+
+1. 交易配置（`configtx/configtx.yaml`）
+
+**输出**：
+
+1. 创世区块（`system-genesis-block/genesis.block`）
+
+**代码**：
+
+```shell
+configtxgen -profile TwoOrgsOrdererGenesis -channelID system-channel -outputBlock ${PWD}/system-genesis-block/genesis.block
+```
+
+
+
+
+
+### 创建并运行节点
+
+**目的**：创建网络中的两个peer和一个orderer节点
+
+**输入**：
+
+1. 编写`docker-compose-test-net.yaml`的Orderer部分:
+   1. 声明环境变量（用这种方式配置Orderer）：过多
+   2. 声明工作目录
+   3. 映射目录至本地：创世区块、MSP、TLS、**生产目录**
+   4. 覆盖默认命令：启动`orderer`
+   5. 映射`port`、声明默认网络、容器名字
+2. 编写`docker-compose-test-net.yaml`的Peer部分:
+   1. 声明环境变量（用这种方式配置Peer）：过多
+   2. 声明工作目录
+   3. 映射目录至本地：MSP、TLS、**生产目录**、`/host/var/run`（用于虚拟机端点）
+   4. 覆盖默认命令：启动`peer node start`
+   5. 映射port、声明默认网络、容器名字
+
+**输出**：
+
+​	无
+
+**代码**：
+
+```shell
+COMPOSE_PROJECT_NAME="simple-net" IMAGE_TAG="latest" docker-compose -f docker-compose-test-net.yaml up -d
+```
+
+
+
+### 总结
+
+要点在于各种**配置文件的编写**和**文件的排布**。
+
+实际上并没有什么太多东西。
+
+- 配置文件：
+
+  - 组织和节点的MSP配置
+
+    ```yaml
+    NodeOUs:
+      Enable: true
+      ClientOUIdentifier:
+        Certificate: cacerts/localhost-7054-ca-org1.pem
+        OrganizationalUnitIdentifier: client
+      PeerOUIdentifier:
+        Certificate: cacerts/localhost-7054-ca-org1.pem
+        OrganizationalUnitIdentifier: peer
+      AdminOUIdentifier:
+        Certificate: cacerts/localhost-7054-ca-org1.pem
+        OrganizationalUnitIdentifier: admin
+      OrdererOUIdentifier:
+        Certificate: cacerts/localhost-7054-ca-org1.pem
+        OrganizationalUnitIdentifier: orderer
+    ```
+
+    
+
+  - 交易配置`configtx/configtx.yaml`
+
+    ```yaml
+    # Copyright IBM Corp. All Rights Reserved.
+    #
+    # SPDX-License-Identifier: Apache-2.0
+    #
+    
+    ---
+    ################################################################################
+    #
+    #   Section: Organizations
+    #
+    #   - This section defines the different organizational identities which will
+    #   be referenced later in the configuration.
+    #
+    ################################################################################
+    Organizations:
+    
+        # SampleOrg defines an MSP using the sampleconfig.  It should never be used
+        # in production but may be used as a template for other definitions
+        - &OrdererOrg
+            # DefaultOrg defines the organization which is used in the sampleconfig
+            # of the fabric.git development environment
+            Name: OrdererOrg
+    
+            # ID to load the MSP definition as
+            ID: OrdererMSP
+    
+            # MSPDir is the filesystem path which contains the MSP configuration
+            MSPDir: ../orgs/ordererOrgs/tanglizi.one/msp
+    
+            # Policies defines the set of policies at this level of the config tree
+            # For organization policies, their canonical path is usually
+            #   /Channel/<Application|Orderer>/<OrgName>/<PolicyName>
+            Policies:
+                Readers:
+                    Type: Signature
+                    Rule: "OR('OrdererMSP.member')"
+                Writers:
+                    Type: Signature
+                    Rule: "OR('OrdererMSP.member')"
+                Admins:
+                    Type: Signature
+                    Rule: "OR('OrdererMSP.admin')"
+    
+            OrdererEndpoints:
+                - orderer.tanglizi.one:7050
+    
+        - &Org1
+            # DefaultOrg defines the organization which is used in the sampleconfig
+            # of the fabric.git development environment
+            Name: Org1MSP
+    
+            # ID to load the MSP definition as
+            ID: Org1MSP
+    
+            MSPDir: ../orgs/peerOrgs/org1.tanglizi.one/msp
+    
+            # Policies defines the set of policies at this level of the config tree
+            # For organization policies, their canonical path is usually
+            #   /Channel/<Application|Orderer>/<OrgName>/<PolicyName>
+            Policies:
+                Readers:
+                    Type: Signature
+                    Rule: "OR('Org1MSP.admin', 'Org1MSP.peer', 'Org1MSP.client')"
+                Writers:
+                    Type: Signature
+                    Rule: "OR('Org1MSP.admin', 'Org1MSP.client')"
+                Admins:
+                    Type: Signature
+                    Rule: "OR('Org1MSP.admin')"
+                Endorsement:
+                    Type: Signature
+                    Rule: "OR('Org1MSP.peer')"
+    
+            # leave this flag set to true.
+            AnchorPeers:
+                # AnchorPeers defines the location of peers which can be used
+                # for cross org gossip communication.  Note, this value is only
+                # encoded in the genesis block in the Application section context
+                - Host: peer0.org1.tanglizi.one
+                  Port: 7051
+    
+        - &Org2
+            # DefaultOrg defines the organization which is used in the sampleconfig
+            # of the fabric.git development environment
+            Name: Org2MSP
+    
+            # ID to load the MSP definition as
+            ID: Org2MSP
+    
+            MSPDir: ../orgs/peerOrgs/org2.tanglizi.one/msp
+    
+            # Policies defines the set of policies at this level of the config tree
+            # For organization policies, their canonical path is usually
+            #   /Channel/<Application|Orderer>/<OrgName>/<PolicyName>
+            Policies:
+                Readers:
+                    Type: Signature
+                    Rule: "OR('Org2MSP.admin', 'Org2MSP.peer', 'Org2MSP.client')"
+                Writers:
+                    Type: Signature
+                    Rule: "OR('Org2MSP.admin', 'Org2MSP.client')"
+                Admins:
+                    Type: Signature
+                    Rule: "OR('Org2MSP.admin')"
+                Endorsement:
+                    Type: Signature
+                    Rule: "OR('Org2MSP.peer')"
+    
+            AnchorPeers:
+                # AnchorPeers defines the location of peers which can be used
+                # for cross org gossip communication.  Note, this value is only
+                # encoded in the genesis block in the Application section context
+                - Host: peer0.org2.tanglizi.one
+                  Port: 9051
+    
+    ################################################################################
+    #
+    #   SECTION: Capabilities
+    #
+    #   - This section defines the capabilities of fabric network. This is a new
+    #   concept as of v1.1.0 and should not be utilized in mixed networks with
+    #   v1.0.x peers and orderers.  Capabilities define features which must be
+    #   present in a fabric binary for that binary to safely participate in the
+    #   fabric network.  For instance, if a new MSP type is added, newer binaries
+    #   might recognize and validate the signatures from this type, while older
+    #   binaries without this support would be unable to validate those
+    #   transactions.  This could lead to different versions of the fabric binaries
+    #   having different world states.  Instead, defining a capability for a channel
+    #   informs those binaries without this capability that they must cease
+    #   processing transactions until they have been upgraded.  For v1.0.x if any
+    #   capabilities are defined (including a map with all capabilities turned off)
+    #   then the v1.0.x peer will deliberately crash.
+    #
+    ################################################################################
+    Capabilities:
+        # Channel capabilities apply to both the orderers and the peers and must be
+        # supported by both.
+        # Set the value of the capability to true to require it.
+        Channel: &ChannelCapabilities
+            # V2_0 capability ensures that orderers and peers behave according
+            # to v2.0 channel capabilities. Orderers and peers from
+            # prior releases would behave in an incompatible way, and are therefore
+            # not able to participate in channels at v2.0 capability.
+            # Prior to enabling V2.0 channel capabilities, ensure that all
+            # orderers and peers on a channel are at v2.0.0 or later.
+            V2_0: true
+    
+        # Orderer capabilities apply only to the orderers, and may be safely
+        # used with prior release peers.
+        # Set the value of the capability to true to require it.
+        Orderer: &OrdererCapabilities
+            # V2_0 orderer capability ensures that orderers behave according
+            # to v2.0 orderer capabilities. Orderers from
+            # prior releases would behave in an incompatible way, and are therefore
+            # not able to participate in channels at v2.0 orderer capability.
+            # Prior to enabling V2.0 orderer capabilities, ensure that all
+            # orderers on channel are at v2.0.0 or later.
+            V2_0: true
+    
+        # Application capabilities apply only to the peer network, and may be safely
+        # used with prior release orderers.
+        # Set the value of the capability to true to require it.
+        Application: &ApplicationCapabilities
+            # V2_0 application capability ensures that peers behave according
+            # to v2.0 application capabilities. Peers from
+            # prior releases would behave in an incompatible way, and are therefore
+            # not able to participate in channels at v2.0 application capability.
+            # Prior to enabling V2.0 application capabilities, ensure that all
+            # peers on channel are at v2.0.0 or later.
+            V2_0: true
+    
+    ################################################################################
+    #
+    #   SECTION: Application
+    #
+    #   - This section defines the values to encode into a config transaction or
+    #   genesis block for application related parameters
+    #
+    ################################################################################
+    Application: &ApplicationDefaults
+    
+        # Organizations is the list of orgs which are defined as participants on
+        # the application side of the network
+        Organizations:
+    
+        # Policies defines the set of policies at this level of the config tree
+        # For Application policies, their canonical path is
+        #   /Channel/Application/<PolicyName>
+        Policies:
+            Readers:
+                Type: ImplicitMeta
+                Rule: "ANY Readers"
+            Writers:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+            Admins:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Admins"
+            LifecycleEndorsement:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Endorsement"
+            Endorsement:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Endorsement"
+    
+        Capabilities:
+            <<: *ApplicationCapabilities
+    ################################################################################
+    #
+    #   SECTION: Orderer
+    #
+    #   - This section defines the values to encode into a config transaction or
+    #   genesis block for orderer related parameters
+    #
+    ################################################################################
+    Orderer: &OrdererDefaults
+    
+        # Orderer Type: The orderer implementation to start
+        OrdererType: etcdraft
+        
+        # Addresses used to be the list of orderer addresses that clients and peers
+        # could connect to.  However, this does not allow clients to associate orderer
+        # addresses and orderer organizations which can be useful for things such
+        # as TLS validation.  The preferred way to specify orderer addresses is now
+        # to include the OrdererEndpoints item in your org definition
+        Addresses:
+            - orderer.tanglizi.one:7050
+    
+        EtcdRaft:
+            Consenters:
+            - Host: orderer.tanglizi.one
+              Port: 7050
+              ClientTLSCert: ../orgs/ordererOrgs/tanglizi.one/orderers/orderer.tanglizi.one/tls/server.crt
+              ServerTLSCert: ../orgs/ordererOrgs/tanglizi.one/orderers/orderer.tanglizi.one/tls/server.crt
+    
+        # Batch Timeout: The amount of time to wait before creating a batch
+        BatchTimeout: 2s
+    
+        # Batch Size: Controls the number of messages batched into a block
+        BatchSize:
+    
+            # Max Message Count: The maximum number of messages to permit in a batch
+            MaxMessageCount: 10
+    
+            # Absolute Max Bytes: The absolute maximum number of bytes allowed for
+            # the serialized messages in a batch.
+            AbsoluteMaxBytes: 99 MB
+    
+            # Preferred Max Bytes: The preferred maximum number of bytes allowed for
+            # the serialized messages in a batch. A message larger than the preferred
+            # max bytes will result in a batch larger than preferred max bytes.
+            PreferredMaxBytes: 512 KB
+    
+        # Organizations is the list of orgs which are defined as participants on
+        # the orderer side of the network
+        Organizations:
+    
+        # Policies defines the set of policies at this level of the config tree
+        # For Orderer policies, their canonical path is
+        #   /Channel/Orderer/<PolicyName>
+        Policies:
+            Readers:
+                Type: ImplicitMeta
+                Rule: "ANY Readers"
+            Writers:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+            Admins:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Admins"
+            # BlockValidation specifies what signatures must be included in the block
+            # from the orderer for the peer to validate it.
+            BlockValidation:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+    
+    ################################################################################
+    #
+    #   CHANNEL
+    #
+    #   This section defines the values to encode into a config transaction or
+    #   genesis block for channel related parameters.
+    #
+    ################################################################################
+    Channel: &ChannelDefaults
+        # Policies defines the set of policies at this level of the config tree
+        # For Channel policies, their canonical path is
+        #   /Channel/<PolicyName>
+        Policies:
+            # Who may invoke the 'Deliver' API
+            Readers:
+                Type: ImplicitMeta
+                Rule: "ANY Readers"
+            # Who may invoke the 'Broadcast' API
+            Writers:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+            # By default, who may modify elements at this config level
+            Admins:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Admins"
+    
+        # Capabilities describes the channel level capabilities, see the
+        # dedicated Capabilities section elsewhere in this file for a full
+        # description
+        Capabilities:
+            <<: *ChannelCapabilities
+    
+    ################################################################################
+    #
+    #   Profile
+    #
+    #   - Different configuration profiles may be encoded here to be specified
+    #   as parameters to the configtxgen tool
+    #
+    ################################################################################
+    Profiles:
+    
+        TwoOrgsOrdererGenesis:
+            <<: *ChannelDefaults
+            Orderer:
+                <<: *OrdererDefaults
+                Organizations:
+                    - *OrdererOrg
+                Capabilities:
+                    <<: *OrdererCapabilities
+            Consortiums:
+                SampleConsortium:
+                    Organizations:
+                        - *Org1
+                        - *Org2
+        TwoOrgsChannel:
+            Consortium: SampleConsortium
+            <<: *ChannelDefaults
+            Application:
+                <<: *ApplicationDefaults
+                Organizations:
+                    - *Org1
+                    - *Org2
+                Capabilities:
+                    <<: *ApplicationCapabilities
+    
+    ```
+
+    
+
+- Dockerfile
+
+  - `docker-compose-fabric-ca.yaml`
+
+    ```yaml
+    # Copyright IBM Corp. All Rights Reserved.
+    #
+    # SPDX-License-Identifier: Apache-2.0
+    #
+    
+    version: '2'
+    
+    networks:
+      test:
+    
+    services:
+    
+      ca_org1:
+        image: hyperledger/fabric-ca:$IMAGE_TAG
+        environment:
+          - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+          - FABRIC_CA_SERVER_CA_NAME=ca-org1
+          - FABRIC_CA_SERVER_TLS_ENABLED=true
+          - FABRIC_CA_SERVER_PORT=7054
+        ports:
+          - "7054:7054"
+        # The user:pass for bootstrap admin which is required to build default config file
+        command: sh -c 'fabric-ca-server start -b admin:adminpw -d'
+        volumes:
+          - ./orgs/ca/org1:/etc/hyperledger/fabric-ca-server
+        # Docker container names must be unique
+        container_name: ca_org1
+        networks:
+          - test
+    
+      ca_org2:
+        image: hyperledger/fabric-ca:$IMAGE_TAG
+        environment:
+          - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+          - FABRIC_CA_SERVER_CA_NAME=ca-org2
+          - FABRIC_CA_SERVER_TLS_ENABLED=true
+          - FABRIC_CA_SERVER_PORT=8054
+        ports:
+          - "8054:8054"
+        command: sh -c 'fabric-ca-server start -b admin:adminpw -d'
+        volumes:
+          - ./orgs/ca/org2:/etc/hyperledger/fabric-ca-server
+        container_name: ca_org2
+        networks:
+          - test
+    
+      ca_orderer:
+        image: hyperledger/fabric-ca:$IMAGE_TAG
+        environment:
+          - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+          - FABRIC_CA_SERVER_CA_NAME=ca-orderer
+          - FABRIC_CA_SERVER_TLS_ENABLED=true
+          - FABRIC_CA_SERVER_PORT=9054
+        ports:
+          - "9054:9054"
+        command: sh -c 'fabric-ca-server start -b admin:adminpw -d'
+        volumes:
+          - ./orgs/ca/ordererOrg:/etc/hyperledger/fabric-ca-server
+        container_name: ca_orderer
+        networks:
+          - test
+    ```
+
+    
+
+  - `docker-compose-test-net.yaml`
+
+    ```yaml
+    # Copyright IBM Corp. All Rights Reserved.
+    #
+    # SPDX-License-Identifier: Apache-2.0
+    #
+    
+    version: '2'
+    
+    volumes:
+      orderer.tanglizi.one:
+      peer0.org1.tanglizi.one:
+      peer0.org2.tanglizi.one:
+    
+    networks:
+      test:
+    
+    services:
+    
+      orderer.tanglizi.one:
+        container_name: orderer.tanglizi.one
+        image: hyperledger/fabric-orderer:$IMAGE_TAG
+        environment:
+          - FABRIC_LOGGING_SPEC=INFO
+          - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+          - ORDERER_GENERAL_LISTENPORT=7050
+          - ORDERER_GENERAL_GENESISMETHOD=file
+          - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
+          - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+          - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+          # enabled TLS
+          - ORDERER_GENERAL_TLS_ENABLED=true
+          - ORDERER_GENERAL_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+          - ORDERER_GENERAL_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+          - ORDERER_GENERAL_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+          - ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR=1
+          - ORDERER_KAFKA_VERBOSE=true
+          - ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+          - ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+          - ORDERER_GENERAL_CLUSTER_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+        working_dir: /opt/gopath/src/github.com/hyperledger/fabric
+        command: orderer
+        volumes:
+            - ./system-genesis-block/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+            - ./orgs/ordererOrgs/tanglizi.one/orderers/orderer.tanglizi.one/msp:/var/hyperledger/orderer/msp
+            - ./orgs/ordererOrgs/tanglizi.one/orderers/orderer.tanglizi.one/tls/:/var/hyperledger/orderer/tls
+            - orderer.tanglizi.one:/var/hyperledger/production/orderer
+        ports:
+          - 7050:7050
+        networks:
+          - test
+    
+      peer0.org1.tanglizi.one:
+        container_name: peer0.org1.tanglizi.one
+        image: hyperledger/fabric-peer:$IMAGE_TAG
+        environment:
+          #Generic peer variables
+          - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+          # the following setting starts chaincode containers on the same
+          # bridge network as the peers
+          # https://docs.docker.com/compose/networking/
+          - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=${COMPOSE_PROJECT_NAME}_test
+          - FABRIC_LOGGING_SPEC=INFO
+          #- FABRIC_LOGGING_SPEC=DEBUG
+          - CORE_PEER_TLS_ENABLED=true
+          - CORE_PEER_PROFILE_ENABLED=true
+          - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+          - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+          - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+          # Peer specific variabes
+          - CORE_PEER_ID=peer0.org1.tanglizi.one
+          - CORE_PEER_ADDRESS=peer0.org1.tanglizi.one:7051
+          - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
+          - CORE_PEER_CHAINCODEADDRESS=peer0.org1.tanglizi.one:7052
+          - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+          - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org1.tanglizi.one:7051
+          - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.org1.tanglizi.one:7051
+          - CORE_PEER_LOCALMSPID=Org1MSP
+        volumes:
+            - /var/run/:/host/var/run/
+            - ./orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/msp:/etc/hyperledger/fabric/msp
+            - ./orgs/peerOrgs/org1.tanglizi.one/peers/peer0.org1.tanglizi.one/tls:/etc/hyperledger/fabric/tls
+            - peer0.org1.tanglizi.one:/var/hyperledger/production
+        working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+        command: peer node start
+        ports:
+          - 7051:7051
+        networks:
+          - test
+    
+      peer0.org2.tanglizi.one:
+        container_name: peer0.org2.tanglizi.one
+        image: hyperledger/fabric-peer:$IMAGE_TAG
+        environment:
+          #Generic peer variables
+          - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+          # the following setting starts chaincode containers on the same
+          # bridge network as the peers
+          # https://docs.docker.com/compose/networking/
+          - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=${COMPOSE_PROJECT_NAME}_test
+          - FABRIC_LOGGING_SPEC=INFO
+          #- FABRIC_LOGGING_SPEC=DEBUG
+          - CORE_PEER_TLS_ENABLED=true
+          - CORE_PEER_PROFILE_ENABLED=true
+          - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+          - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+          - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+          # Peer specific variabes
+          - CORE_PEER_ID=peer0.org2.tanglizi.one
+          - CORE_PEER_ADDRESS=peer0.org2.tanglizi.one:9051
+          - CORE_PEER_LISTENADDRESS=0.0.0.0:9051
+          - CORE_PEER_CHAINCODEADDRESS=peer0.org2.tanglizi.one:9052
+          - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:9052
+          - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.org2.tanglizi.one:9051
+          - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org2.tanglizi.one:9051
+          - CORE_PEER_LOCALMSPID=Org2MSP
+        volumes:
+            - /var/run/:/host/var/run/
+            - ./orgs/peerOrgs/org2.tanglizi.one/peers/peer0.org2.tanglizi.one/msp:/etc/hyperledger/fabric/msp
+            - ./orgs/peerOrgs/org2.tanglizi.one/peers/peer0.org2.tanglizi.one/tls:/etc/hyperledger/fabric/tls
+            - peer0.org2.tanglizi.one:/var/hyperledger/production
+        working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+        command: peer node start
+        ports:
+          - 9051:9051
+        networks:
+          - test
+    ```
+
+- 文件排布：注意文件映射到容器的位置
+
+  ```
+  orgs
+  ├── ca
+  │   ├── ordererOrg
+  │   │   ├── ca-cert.pem
+  │   │   ├── fabric-ca-server-config.yaml
+  │   │   ├── fabric-ca-server.db
+  │   │   ├── IssuerPublicKey
+  │   │   ├── IssuerRevocationPublicKey
+  │   │   ├── msp
+  │   │   │   ├── cacerts
+  │   │   │   ├── keystore
+  │   │   │   │   ├── 53938f6913ca4d7eb2fbd9cbe0412e00ebffc73c8e9fb3d2951adac673663a38_sk
+  │   │   │   │   ├── ede32742e322b646fecc30955523e49aef23fa8a64ef355098af875225d545a2_sk
+  │   │   │   │   ├── IssuerRevocationPrivateKey
+  │   │   │   │   └── IssuerSecretKey
+  │   │   │   ├── signcerts
+  │   │   │   └── user
+  │   │   └── tls-cert.pem
+  │   ├── org1
+  │   │   ├── ca-cert.pem
+  │   │   ├── fabric-ca-server-config.yaml
+  │   │   ├── fabric-ca-server.db
+  │   │   ├── IssuerPublicKey
+  │   │   ├── IssuerRevocationPublicKey
+  │   │   ├── msp
+  │   │   │   ├── cacerts
+  │   │   │   ├── keystore
+  │   │   │   │   ├── 138f91dc5ee6e88cc91c6978935c787f2ab716cf15755d46138b740c8c704bb6_sk
+  │   │   │   │   ├── 3ff4379cc4bdf6b0cfa057a03d46777b247b84723bcc02e36dce685bfb92c7f2_sk
+  │   │   │   │   ├── IssuerRevocationPrivateKey
+  │   │   │   │   └── IssuerSecretKey
+  │   │   │   ├── signcerts
+  │   │   │   └── user
+  │   │   └── tls-cert.pem
+  │   └── org2
+  │       ├── ca-cert.pem
+  │       ├── fabric-ca-server-config.yaml
+  │       ├── fabric-ca-server.db
+  │       ├── IssuerPublicKey
+  │       ├── IssuerRevocationPublicKey
+  │       ├── msp
+  │       │   ├── cacerts
+  │       │   ├── keystore
+  │       │   │   ├── 02ccf5efccf10c345275691de9ea1734c602364f7b39ed377e41e05d54d8a84e_sk
+  │       │   │   ├── 97d55e84721ca18203dd55741f40f3890acfd00230bfa92afc15e5388b96a526_sk
+  │       │   │   ├── IssuerRevocationPrivateKey
+  │       │   │   └── IssuerSecretKey
+  │       │   ├── signcerts
+  │       │   └── user
+  │       └── tls-cert.pem
+  ├── ordererOrgs
+  │   └── tanglizi.one
+  │       ├── fabric-ca-client-config.yaml
+  │       ├── msp
+  │       │   ├── cacerts
+  │       │   │   └── localhost-9054-ca-orderer.pem
+  │       │   ├── config.yaml
+  │       │   ├── IssuerPublicKey
+  │       │   ├── IssuerRevocationPublicKey
+  │       │   ├── keystore
+  │       │   │   └── 813d47ccfdad63de2f05d95f12c0ceaf63162103c3405db876651310ee937914_sk
+  │       │   ├── signcerts
+  │       │   │   └── cert.pem
+  │       │   ├── tlscacerts
+  │       │   │   └── tlsca.tanlizi.one-cert.pem
+  │       │   └── user
+  │       ├── orderers
+  │       │   └── orderer.tanglizi.one
+  │       │       ├── ca
+  │       │       ├── msp
+  │       │       │   ├── cacerts
+  │       │       │   │   └── localhost-9054-ca-orderer.pem
+  │       │       │   ├── config.yaml
+  │       │       │   ├── IssuerPublicKey
+  │       │       │   ├── IssuerRevocationPublicKey
+  │       │       │   ├── keystore
+  │       │       │   │   └── aeee1732278ca40547ec31adb3de1d82c04e1ace5c16f41fba780748e7600205_sk
+  │       │       │   ├── signcerts
+  │       │       │   │   └── cert.pem
+  │       │       │   ├── tlscacerts
+  │       │       │   │   └── tlsca.tanglizi.one-cert.pem
+  │       │       │   └── user
+  │       │       ├── tls
+  │       │       │   ├── cacerts
+  │       │       │   ├── ca.crt
+  │       │       │   ├── IssuerPublicKey
+  │       │       │   ├── IssuerRevocationPublicKey
+  │       │       │   ├── keystore
+  │       │       │   │   └── 64959492e67c15258ef3ada90c1b38e2eaf0828eeed36d1640ede0ec6b050f44_sk
+  │       │       │   ├── server.crt
+  │       │       │   ├── server.key
+  │       │       │   ├── signcerts
+  │       │       │   │   └── cert.pem
+  │       │       │   ├── tlscacerts
+  │       │       │   │   └── tls-localhost-9054-ca-orderer.pem
+  │       │       │   └── user
+  │       │       └── tlsca
+  │       └── users
+  │           └── Admin@tanglizi.one
+  │               └── msp
+  │                   ├── cacerts
+  │                   │   └── localhost-9054-ca-orderer.pem
+  │                   ├── config.yaml
+  │                   ├── IssuerPublicKey
+  │                   ├── IssuerRevocationPublicKey
+  │                   ├── keystore
+  │                   │   └── 2e8e50d4ddfaec347abb75e6dfda17cdebcd5fd72a75f912ed3b84ef687bb409_sk
+  │                   ├── signcerts
+  │                   │   └── cert.pem
+  │                   └── user
+  └── peerOrgs
+      ├── org1.tanglizi.one
+      │   ├── ca
+      │   │   └── ca.org1.tanglizi.one-cert.pem
+      │   ├── fabric-ca-client-config.yaml
+      │   ├── msp
+      │   │   ├── cacerts
+      │   │   │   └── localhost-7054-ca-org1.pem
+      │   │   ├── config.yaml
+      │   │   ├── IssuerPublicKey
+      │   │   ├── IssuerRevocationPublicKey
+      │   │   ├── keystore
+      │   │   │   └── a9d8f0f13eb851acb4f0686166aaecc2afb4e5e89d07da42d0561f64feca6164_sk
+      │   │   ├── signcerts
+      │   │   │   └── cert.pem
+      │   │   ├── tlscacerts
+      │   │   │   └── ca.crt
+      │   │   └── user
+      │   ├── peers
+      │   │   └── peer0.org1.tanglizi.one
+      │   │       ├── msp
+      │   │       │   ├── cacerts
+      │   │       │   │   └── localhost-7054-ca-org1.pem
+      │   │       │   ├── config.yaml
+      │   │       │   ├── IssuerPublicKey
+      │   │       │   ├── IssuerRevocationPublicKey
+      │   │       │   ├── keystore
+      │   │       │   │   └── 2ab261015cdca2fde1a7a509d724e410489b6e86758df90250069623e83d9b1b_sk
+      │   │       │   ├── signcerts
+      │   │       │   │   └── cert.pem
+      │   │       │   └── user
+      │   │       └── tls
+      │   │           ├── cacerts
+      │   │           ├── ca.crt
+      │   │           ├── IssuerPublicKey
+      │   │           ├── IssuerRevocationPublicKey
+      │   │           ├── keystore
+      │   │           │   └── 0f90a9a7194ba42a49c095f0da098e44b6d924dd66f5bde1bc5d6a65fbbfd1b3_sk
+      │   │           ├── server.crt
+      │   │           ├── server.key
+      │   │           ├── signcerts
+      │   │           │   └── cert.pem
+      │   │           ├── tlscacerts
+      │   │           │   └── tls-localhost-7054-ca-org1.pem
+      │   │           └── user
+      │   ├── tlsca
+      │   │   └── tlsca.org1.tanglizi.one-cert.pem
+      │   └── users
+      │       ├── Admin@org1.tanglizi.one
+      │       │   └── msp
+      │       │       ├── cacerts
+      │       │       │   └── localhost-7054-ca-org1.pem
+      │       │       ├── config.yaml
+      │       │       ├── IssuerPublicKey
+      │       │       ├── IssuerRevocationPublicKey
+      │       │       ├── keystore
+      │       │       │   └── c6b86240dddeae2c07b7ffd8384bf9e2fd9d5124fb660ba650fbc6fada04accc_sk
+      │       │       ├── signcerts
+      │       │       │   └── cert.pem
+      │       │       └── user
+      │       └── User1@org1.tanglizi.one
+      │           └── msp
+      │               ├── cacerts
+      │               │   └── localhost-7054-ca-org1.pem
+      │               ├── config.yaml
+      │               ├── IssuerPublicKey
+      │               ├── IssuerRevocationPublicKey
+      │               ├── keystore
+      │               │   └── 51627f7c831018e3d180c7f30aa904d53741d65e09f0bda49528c2ceb6b285d0_sk
+      │               ├── signcerts
+      │               │   └── cert.pem
+      │               └── user
+      └── org2.tanglizi.one
+          ├── ca
+          │   └── ca.org2.tanglizi.one-cert.pem
+          ├── fabric-ca-client-config.yaml
+          ├── msp
+          │   ├── cacerts
+          │   │   └── localhost-8054-ca-org2.pem
+          │   ├── config.yaml
+          │   ├── IssuerPublicKey
+          │   ├── IssuerRevocationPublicKey
+          │   ├── keystore
+          │   │   └── 6d3e0e21fad0873662e6c3dbd9b953ead551f62bd9461d1cfb4c1875eabc7b88_sk
+          │   ├── signcerts
+          │   │   └── cert.pem
+          │   ├── tlscacerts
+          │   │   └── ca.crt
+          │   └── user
+          ├── peers
+          │   └── peer0.org2.tanglizi.one
+          │       ├── msp
+          │       │   ├── cacerts
+          │       │   │   └── localhost-8054-ca-org2.pem
+          │       │   ├── config.yaml
+          │       │   ├── IssuerPublicKey
+          │       │   ├── IssuerRevocationPublicKey
+          │       │   ├── keystore
+          │       │   │   └── 282f899aec7ab7907a1dc47bb94168d31c27cc41b11176fc558c4ae76d25b240_sk
+          │       │   ├── signcerts
+          │       │   │   └── cert.pem
+          │       │   └── user
+          │       └── tls
+          │           ├── cacerts
+          │           ├── ca.crt
+          │           ├── IssuerPublicKey
+          │           ├── IssuerRevocationPublicKey
+          │           ├── keystore
+          │           │   └── 0bdca5eca39128fb8ce879760fb35966e67c3a2640d1b07350bfa49af30884c7_sk
+          │           ├── server.crt
+          │           ├── server.key
+          │           ├── signcerts
+          │           │   └── cert.pem
+          │           ├── tlscacerts
+          │           │   └── tls-localhost-8054-ca-org2.pem
+          │           └── user
+          ├── tlsca
+          │   └── tlsca.org2.tanglizi.one-cert.pem
+          └── users
+              ├── Admin@org2.tanglizi.one
+              │   └── msp
+              │       ├── cacerts
+              │       │   └── localhost-8054-ca-org2.pem
+              │       ├── config.yaml
+              │       ├── IssuerPublicKey
+              │       ├── IssuerRevocationPublicKey
+              │       ├── keystore
+              │       │   └── 2810ad3ae104b1496116bcae6a497a797bff6d0e1e99df47b44ff855ab9dfacc_sk
+              │       ├── signcerts
+              │       │   └── cert.pem
+              │       └── user
+              └── User1@org2.tanglizi.one
+                  └── msp
+                      ├── cacerts
+                      │   └── localhost-8054-ca-org2.pem
+                      ├── config.yaml
+                      ├── IssuerPublicKey
+                      ├── IssuerRevocationPublicKey
+                      ├── keystore
+                      │   └── f6e59fbddb649ca9c5785fa8cb52e27806e0ddeb3aa57250a761b9c46b871393_sk
+                      ├── signcerts
+                      │   └── cert.pem
+                      └── user
+  
+  121 directories, 131 files
+  ```
+
+  
