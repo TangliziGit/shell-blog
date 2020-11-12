@@ -1,5 +1,4 @@
-
-<!-- vim-markdown-toc GitLab -->
+3<!-- vim-markdown-toc GitLab -->
 
 * [区块链技术实践 - Hyperledger Fabric 2 实践](#区块链技术实践-hyperledger-fabric-2-实践)
     * [部署生产网络](#部署生产网络)
@@ -218,7 +217,7 @@ Fabric网络中第一个安装的组件是CA。因为节点的证书要创建在
     ```
 
 3. 应用部分
-  定义了参与应用程序的组织，和对应的策略
+    定义了参与应用程序的组织，和对应的策略
 
    ```yaml
    Application: &ApplicationDefaults
@@ -330,7 +329,7 @@ Fabric网络中第一个安装的组件是CA。因为节点的证书要创建在
     ```
 
 6. 配置
-  定义不同的配置方法，可以用来给`configtxgen`提供配置参数
+    定义不同的配置方法，可以用来给`configtxgen`提供配置参数
    ```yaml
    Profiles:
    
@@ -1194,3 +1193,83 @@ COMPOSE_PROJECT_NAME="simple-net" IMAGE_TAG="latest" docker-compose -f docker-co
   ```
 
   
+
+## 纠错
+
+记录搭建和操作hyperledger fabric 2过程中遇到的一些Bug和解决方法。
+
+
+
+### 节点不能加入通道
+
+**代码**
+
+```shell
+export CORE_PEER_LOCALMSPID="Org1MSP"
+export CORE_PEER_TLS_ROOTCERT_FILE=$PEER0_ORG1_CA
+export CORE_PEER_MSPCONFIGPATH=${PWD}/orgs/peerOrgs/org1.tanglizi.one/users/Admin@org1.tanglizi.one/msp
+export CORE_PEER_ADDRESS=localhost:7051
+
+peer channel join -b ./channel-artifacts/$CHANNEL_NAME.block
+```
+
+**报错**
+
+```
+Error: error getting endorser client for channel: endorser client failed to connect to peer0.org1.tanglizi.one:7051: failed to create new connection: context deadline exceeded
+```
+
+**原因**
+
+忘了启用TLS
+
+
+
+**正确排错过程**
+
+1. 启用DEBUG模式输出日志
+
+   ```
+   export CORE_PEER_TLS_ENABLED=true
+   ```
+
+2. 对比`test-network`样例发现此处异常
+
+   ```
+   2020-11-10 23:30:27.477 CST [grpc] Infof -> DEBU 01c parsed scheme: ""
+   2020-11-10 23:30:27.477 CST [grpc] Infof -> DEBU 01d scheme "" not registered, fallback to default scheme
+   2020-11-10 23:30:27.477 CST [grpc] Infof -> DEBU 01e ccResolverWrapper: sending update to cc: {[{0.0.0.0:7051  <nil> 0 <nil>}] <nil> <nil>}
+   2020-11-10 23:30:27.477 CST [grpc] Infof -> DEBU 01f ClientConn switching balancer to "pick_first"
+   2020-11-10 23:30:27.477 CST [grpc] Infof -> DEBU 020 Channel switches to new LB policy "pick_first"
+   2020-11-10 23:30:27.478 CST [grpc] Infof -> DEBU 021 Subchannel Connectivity change to CONNECTING
+   2020-11-10 23:30:27.478 CST [grpc] Infof -> DEBU 022 Subchannel picks a new address "0.0.0.0:7051" to connect
+   2020-11-10 23:30:27.478 CST [grpc] UpdateSubConnState -> DEBU 023 pickfirstBalancer: HandleSubConnStateChange: 0xc0003554a0, {CONNECTING <nil>}
+   2020-11-10 23:30:27.478 CST [grpc] Infof -> DEBU 024 Channel Connectivity change to CONNECTING
+   2020-11-10 23:30:27.478 CST [grpc] Infof -> DEBU 025 Subchannel Connectivity change to TRANSIENT_FAILURE
+   2020-11-10 23:30:27.478 CST [grpc] UpdateSubConnState -> DEBU 026 pickfirstBalancer: HandleSubConnStateChange: 0xc0003554a0, {TRANSIENT_FAILURE connection closed}
+   2020-11-10 23:30:27.478 CST [grpc] Infof -> DEBU 027 Channel Connectivity change to TRANSIENT_FAILURE
+   2020-11-10 23:30:27.478 CST [grpc] infof -> DEBU 028 transport: loopyWriter.run returning. connection error: desc = "transport is closing"
+   2020-11-10 23:30:28.478 CST [grpc] Infof -> DEBU 029 Subchannel Connectivity change to CONNECTING
+   2020-11-10 23:30:28.479 CST [grpc] Infof -> DEBU 02a Subchannel picks a new address "0.0.0.0:7051" to connect
+   ```
+
+3. 首先检查是否连通端口（此时也应该检查TLS是否启用）
+
+   ```
+   > nc -vz localhost 7051
+   localhost [127.0.0.1] 7051 open
+   ```
+
+4. 对比样例配置文件，检查自己的复现
+
+   没问题
+
+5. 对比样例代码，检查自己的复现
+
+   第一次检查没问题，但实际上最后发现我漏掉了`export CORE_PEER_TLS_ENABLED=true`
+
+6. 在样例代码上手动断点至加入通道，在shell下直接测试命令
+
+   出现同样错误，说明之前代码很可能没有问题。
+
+   最后检查发现TLS未开启，测试发现确实如此。
