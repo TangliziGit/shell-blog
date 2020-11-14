@@ -56,9 +56,16 @@
             * [快照](#快照)
         * [更多信息](#更多信息-1)
     * [智能合约与链码](#智能合约与链码)
+        * [背书](#背书)
+        * [有效交易](#有效交易)
+        * [通道](#通道-1)
+        * [互通](#互通)
+        * [系统链码](#系统链码)
+        * [更多信息](#更多信息-2)
     * [链码生存周期](#链码生存周期)
     * [私有数据](#私有数据)
-    * [通道兼容性](#通道兼容性)
+    * [通道功能 Capabilities](#通道功能-capabilities)
+        * [节点版本与功能版本](#节点版本与功能版本)
 
 <!-- vim-markdown-toc -->
 
@@ -1074,6 +1081,107 @@ Fabric 2.0 中，引入了链码生命周期过程。它允许多个组织在链
 
 ## 智能合约与链码
 
+- 智能合约是一个特定领域的程序，与特定的业务流程相关；而链码则是一组相关智能合约的技术容器
+- 多个智能合约也可以定义在同一个链码中。当一个链码部署完毕，该链码中的所有智能合约都可供应用程序使用。
+
+![smart.diagram2](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/_images/smartcontract.diagram.02.png)
+
+
+
+
+
+### 背书
+
+- 每个链码都有一个背书策略与之相关联，该背书策略适用于此链码中定义的所有智能合约。
+  - 注意：命名空间是针对链码的，也就是说同一个链码下的智能合约是**共享同一个世界状态**。
+- 背书策略指明了区块链网络中哪些组织，必须对一个既定智能合约所生成的交易进行签名，以此来宣布该交易**有效**。
+- 背书策略的设计旨在让 Hyperledger Fabric 更好地模拟这些真实发生的交互。
+
+![smart.diagram3](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/_images/smartcontract.diagram.03.png)
+
+
+
+一个示例背书策略可能这样定义：参与区块链网络的四个组织中有三个必须在交易被认为**有效**之前签署该交易。所有的交易，无论是**有效的**还是**无效的**，都会被添加到分布式账本中，但仅**有效**交易会更新世界状态。
+
+如果一项背书策略指定，必须有不止一个组织来签署交易，那么只有当足够数量的组织都执行了智能合约，才能够生成有效交易。在[上面](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/smartcontract/smartcontract.html#endorsement)的示例中，要使用于车辆 `transfer` 的智能合约交易有效，需要 `ORG1` 和 `ORG2` 都执行并签署该交易。
+
+背书策略是 Hyperledger Fabric  与以太坊（Ethereum）或比特币（Bitcoin）等其他区块链的区别所在。在这些区块链系统中，网络上的任何节点都可以生成有效的交易。而  Hyperledger Fabric 更真实地模拟了现实世界；交易必须由 Fabric  网络中受信任的组织验证。例如，一个政府组织必须签署一个有效的 `issueIdentity` 交易，或者一辆车的 `buyer` 和 `seller` 都必须签署一个 `car` 转移交易。背书策略的设计旨在让 Hyperledger Fabric 更好地模拟这些真实发生的交互。
+
+
+
+### 有效交易
+
+- 当智能合约执行时，它会在区块链网络中组织所拥有的节点上运行：
+  - 智能合约提取一组名为**交易提案**的输入参数，并将其与程序逻辑结合起来使用以读写账本。
+  - 对世界状态的更改被捕获为**交易提案响应**（或简称**交易响应**）
+  - 该响应包含一个**读写集**，其中既含有已读取的状态，也含有还未书写的新状态（如果交易有效的话）
+
+![smart.diagram4](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/_images/smartcontract.diagram.04.png)
+
+**注意**
+
+- 在执行智能合约时**世界状态没有更新**！
+- 所有交易，无论是否有效，都会被记录在区块链上，但仅有效交易会更新世界状态。
+
+
+
+### 通道
+
+- Fabric 允许一个组织利用**通道**同时参与多个、彼此独立的区块链网络。
+- 通道在**维持数据和通信隐私**的同时还提供了高效的基础设施共享。
+
+![smart.diagram5](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/_images/smartcontract.diagram.05.png)
+
+​	链码定义是一种包含了许多参数的结构，这些参数管理着链码的运行方式，包含着链码名、版本以及背书策略。各通道成员批准各自组织的一个链码定义，以表示其对该链码的参数表示同意。当足够数量（默认是多数）的组织都已批准同一个链码定义，该定义可被提交至这些组织所在的通道。随后，通道成员可依据该链码定义中指明的背书策略来执行其中的智能合约
+
+
+
+### 互通
+
+一个智能合约既可以调用同通道上的其他智能合约，也可以调用其他通道上的智能合约。这样一来，智能合约就可以读写原本因为智能合约命名空间而无法访问的世界状态数据。
+
+
+
+### 系统链码
+
+链码还可以定义低级别程序代码，这些代码符合关于领域的*系统*交互，但与业务流程的智能合约无关。
+
+以下是不同类型的系统链码及其相关缩写：
+
+- `_lifecycle` 
+
+  在所有 Peer 节点上运行，它负责管理节点上的链码安装、批准组织的链码定义、将链码定义提交到通道上。你可以在[这里](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/chaincode4noah.html#chaincode-lifecycle)阅读更多关于 `_lifecycle` 如何实现 Fabric 链码生命周期的内容。
+
+- 生命周期系统链码（LSCC）
+
+  负责为1.x版本的 Fabric 管理链码生命周期。该版本的生命周期要求在通道上实例化或升级链码。你可以阅读更多关于LSCC如何实现这一[过程](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/chaincode4noah.html#chaincode-lifecycle)。如果你的 V1_4_x 或更低版本设有通道应用程序的功能，那么你也可以使用LSCC来管理链码。
+
+- **配置系统链码（CSCC）**
+
+  在所有 Peer 节点上运行，以处理通道配置的变化，比如策略更新。你可以在[这里](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/configtx.html#configuration-updates)阅读更多 CSCC 实现的内容。
+
+- **查询系统链码（QSCC）**
+
+  在所有 Peer 节点上运行，以提供账本 API（应用程序编码接口），其中包括区块查询、交易查询等。你可以在交易场景[主题](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/developapps/transactioncontext.html)中查阅更多这些账本 API 的信息。
+
+- **背书系统链码（ESCC）**
+
+  在背书节点上运行，对一个交易响应进行密码签名。你可以在[这里](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/peers/peers.html#phase-1-proposal)阅读更多 ESCC 实现的内容。
+
+- **验证系统链码（VSCC）**
+
+  验证一个交易，包括检查背书策略和读写集版本。你可以在[这里](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/peers/peers.html#phase-3-validation)阅读更多 LSCC 实现的内容。
+
+只有底层的 Fabric  开发人员和管理员可以根据自己的需要修改这些系统链码。
+
+
+
+### 更多信息
+
+- [链码命名空间](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/developapps/chaincodenamespace.html)
+- [链码操作者教程](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/chaincode4noah.html#chaincode-lifecycle)
+- [通道配置（configtx）](https://hyperledger-fabric-cn.readthedocs.io/zh/latest/configtx.html#configuration-updates)
+
 
 
 ## 链码生存周期
@@ -1084,5 +1192,27 @@ Fabric 2.0 中，引入了链码生命周期过程。它允许多个组织在链
 
 
 
-## 通道兼容性
+## 通道功能 Capabilities
 
+Capabilities 使运行在不同版本级别的节点能够在给定特定块高度的通道配置时，以一种兼容和一致的方式运行。
+
+
+
+### 节点版本与功能版本
+
+功能遵循与 Fabric 发行版和二进制程序相同的版本控制约定。有v1.1功能、v1.2功能和2.0功能，等等。但有必要注意几个区别。
+
+- **每个发行版不一定都用新的功能级别。**  
+
+  - 建立新功能的需求取决于具体情况，并且主要取决于新功能和较旧的二进制版本的向后兼容性。 
+
+  - 例如，在v1.4.1中添加Raft订购服务不会改变处理交易或订购服务功能的方式，因此不需要建立任何新功能。  
+  - 另一方面，v1.2之前的对等方无法处理私有数据，因此需要建立v1.2能力级别。  
+  - 由于并非每个版本都包含改变交易处理方式的新功能（或错误修复），因此某些版本将不需要任何新功能（例如，v1.4），而其他版本仅具有特定级别的新功能（例如 作为v1.2和v1.3）。
+
+ 
+
+- **节点必须至少处于通道中某些功能的级别**。  
+  - 当对等方加入通道时，它将顺序读取账本中的所有模块，从通道的创始模块开始，一直到交易模块和所有后续配置模块。  
+  - 如果某个节点（例如对等节点）尝试读取包含对其不了解的功能的更新的块（例如，v1.4.x对等节点试图读取包含v2.0应用程序功能的块）会崩溃。 这种崩溃行为是故意的，因为v1.4.x对等点不应尝试验证或提交任何超过此时间点的事务。  
+  - 加入通道之前，请确保该节点至少是与该节点相关的通道配置中指定的功能的结构版本（二进制）级别。 稍后我们将讨论哪些功能与哪些节点相关。  但是，由于没有用户希望其节点崩溃，因此强烈建议在尝试更新功能之前将所有节点更新到所需级别（最好更新到最新版本）。  这符合默认的Fabric建议，始终保持最新的二进制和功能级别。
