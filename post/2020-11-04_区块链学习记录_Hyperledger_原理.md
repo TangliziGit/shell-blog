@@ -63,6 +63,20 @@
         * [系统链码](#系统链码)
         * [更多信息](#更多信息-2)
     * [链码生存周期](#链码生存周期)
+        * [安装与定义流程](#安装与定义流程)
+            * [第一步：打包](#第一步打包)
+            * [第二步：安装](#第二步安装)
+            * [第三步：批准](#第三步批准)
+            * [第四步：提交链码定义给通道](#第四步提交链码定义给通道)
+        * [升级链码流程](#升级链码流程)
+        * [其他部署方案的流程](#其他部署方案的流程)
+            * [新组织加入频道](#新组织加入频道)
+            * [更新背书政策](#更新背书政策)
+            * [批准定义而不安装链码的情况](#批准定义而不安装链码的情况)
+            * [某组织不批准链码定义的情况](#某组织不批准链码定义的情况)
+            * [链码定义未通过批准策略的情况](#链码定义未通过批准策略的情况)
+            * [组织安装不同的链码包ID的情况](#组织安装不同的链码包id的情况)
+            * [使用一个包创建多个链码的情况](#使用一个包创建多个链码的情况)
     * [私有数据](#私有数据)
     * [通道功能 Capabilities](#通道功能-capabilities)
         * [节点版本与功能版本](#节点版本与功能版本)
@@ -1186,9 +1200,353 @@ Fabric 2.0 中，引入了链码生命周期过程。它允许多个组织在链
 
 ## 链码生存周期
 
+- 可以通过创建新通道并将通道功能设置为V2.0来使用Fabric链码生命周期。<br>同时，在V2.0的通道上无法使用旧命令安装，实例化或更新链码。<br>但仍然可以调用之前安装过的链码。
+
+
+
+### 安装与定义流程
+
+链码生命周期要求组织同意定义链码的参数，例如名称，版本和链码背书策略。
+
+通道成员通过以下四个步骤达成协议。并非一个通道上的每个组织都需要完成每个步骤。
+
+1. `package`**打包链码**
+
+   可以由**某个**组织完成此步骤。
+
+2. `install`**在您的对等方上安装链码**
+
+   **每个**将使用链码来认可交易或查询分类帐的组织**对等方**都需要完成此步骤。
+
+3. `approval`**批准组织的链码定义**
+
+   **每个**将使用链码的**组织**都需要完成此步骤。
+
+   链码定义需要得到足够多的组织的批准，才能满足通道的生命周期背书策略（默认是多数节点批准），然后才能在频道上启动链码。
+
+4. `commit`**将链码定义提交到通道**
+
+   一旦批准了渠道上所需数目的组织，提交事务就需要**由一个组织提交**。提交者首先从已经批准的组织的足够的同龄人那里收集认可，然后提交交易以提交链码定义。
+
+
+
+#### 第一步：打包
+
+链码必须先包装在tar文件中，然后才能安装在对等方上。
+
+- 链码需要打包在tar文件中，并以`.tar.gz`文件扩展名结尾。
+
+- tar文件需要包含两个文件：一个元数据文件`metadata.json`和另一个包含链码文件的`code.tar.gz`。
+
+  - `metadata.json`包含用于指定链码语言，代码路径和程序包标签的JSON。
+
+  ```shell
+  $ tar -tvf sc.tar.gz
+  -rw-r--r-- 0/0             118 1970-01-01 08:00 metadata.json
+  -rw-r--r-- 0/0         2633369 1970-01-01 08:00 code.tar.gz
+  
+  $ cat metadata.json | jq .
+  {
+    "path": "sc",
+    "type": "golang",
+    "label": "sc_1.0"
+  }
+  
+  $ tar tvf code.tar.gz
+  drwxr-xr-x 500/500           0 1970-01-01 08:00 src/
+  -rw-r--r-- 500/500          81 1970-01-01 08:00 src/go.mod
+  -rw-r--r-- 500/500       13481 1970-01-01 08:00 src/go.sum
+  -rw-r--r-- 500/500    15570905 1970-01-01 08:00 src/sc
+  -rw-r--r-- 500/500        2158 1970-01-01 08:00 src/sc.go
+  ```
+
+  
+
+#### 第二步：安装
+
+- 你需要在将执行和认可交易的**每个对等方上安装**chaincode软件包。
+
+- 同时需要使用**Peer 管理员**完成此步骤。
+
+- 成功的安装命令将返回一个**链码软件包标识符`Package ID`**，该标识符是软件包标签和软件包的哈希值。
+
+  ```shell
+  basic_1.0:4ec191e793b27e953ff2ede5a8bcc63152cecb1e4c3f301a26e22692c61967ad
+  ```
+
+
+
+#### 第三步：批准
+
+通道成员批准链码定义的行为，可视为组织对链码参数的投票。目的是允许通道成员， 在通道上使用链码之前，对链码定义达成共识。
+
+链码定义包括以下参数，这些参数在组织之间必须保持一致：
+
+- **Name：**应用程序在调用链码时将使用的名称。
+
+- **Version：**版本号。
+
+  - 如果升级链码二进制文件，则还需要更改链码版本。
+
+- **Sequence：**定义链码的次数。
+
+  - 该值是一个整数，用于跟踪链码升级。例如，当您第一次安装并批准链码定义时，序列号将为1。下次升级链码时，序列号将增加为2。
+
+- **Endorsement Policy 背书策略：**定义了哪些组织需要执行和验证交易输出。
+
+  - 背书策略可以是传递给CLI的参数，也可以引用通道配置`configtx.yaml`中的策略。
+
+  - 默认情况下，背书策略设置为`Channel/Application/Endorsement`，默认情况下要求渠道中的大多数组织对交易进行背书。
+
+    ```yaml
+    Application: &ApplicationDefaults
+    
+        # Policies defines the set of policies at this level of the config tree
+        # For Application policies, their canonical path is
+        #   /Channel/Application/<PolicyName>
+        Policies:
+            Readers:
+                Type: ImplicitMeta
+                Rule: "ANY Readers"
+            Writers:
+                Type: ImplicitMeta
+                Rule: "ANY Writers"
+            Admins:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Admins"
+            LifecycleEndorsement:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Endorsement"
+            Endorsement:
+                Type: ImplicitMeta
+                Rule: "MAJORITY Endorsement"
+    
+    ```
+
+- **Collection Configuration 集合配置：**与您的链码关联的私有数据集合定义文件的路径。
+
+- **ESCC / VSCC插件：**此链码将使用的自定义背书或验证插件的名称。
+
+- **Initialization 初始化：**
+
+  - 如果使用Shim API提供的底层API，则您的链码需要包含一个`Init`用于初始化链码的函数。该功能是chaincode接口所必需的，但不一定需要由您的应用程序调用。批准链码定义时，可以指定是否`Init`必须在调用之前调用。如果指定了此`Init`要求，Fabric将确保在`Init` 调用链码中的任何其他函数之前先调用该函数，并且仅调用一次。请求执行`Init`功能使您可以实现在初始化链码时运行的逻辑，例如，设置一些初始状态。每次链码版本号升级时，都要初始化链码，递增版本的链码定义表明`Init`是必需的。
+
+  - 如果使用的是peer CLI，则可以使用`--init-required`在批准并提交链码定义时，指示`Init` 必须调用该函数来初始化新的链码版本。若要使用peer CLI调用`Init`，可以在`peer chaincode invoke`命令后添加`--isInit`。
+
+  - 如果您使用的是Contract API，则无需`Init` 在链码中包含方法。但是，您仍然可以使用该`--init-required`标志来请求通过应用程序的调用来初始化链码。如果使用`--init-required`标志，则需要在每次增加链码版本时将`--isInit`标志或参数传递给链码调用，以初始化链码。您可以使用链码中的任何函数来传递和初始化链码，一般是`InitLedger`。
+
+批准链码定义的参数还包括**Package Identifier**，用以识别要批准的包。包ID不必对于所有组织都相同。组织可以批准链码定义，而无需安装链码包或在定义中包括标识符。
+
+
+
+**批准链码定义的流程**：
+
+1. 该批准需要由您的**组织管理员**提交给排序服务，然后再分发给所有peer。
+2. 成功提交批准交易后，**批准的定义将存储在一个集合中**，该集合可供组织的所有对等方使用。
+
+因此，即使您有多个对等方，您也**只需要为组织批准一次链码**。
+
+![批准链码定义](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-approve.png)
+
+*Org1和Org2的组织管理员为他们的组织批准MYCC的链码定义。链码定义包括链码名称，版本和认可策略以及其他字段。由于两个组织都将使用链码来认可交易，因此两个组织的批准定义都需要包括packageID。*
+
+
+
+#### 第四步：提交链码定义给通道
+
+- 一旦足够数量的成员批准了链码定义，则**一个组织**可以将定义提交给通道。
+- 您可以使用 `checkcommitreadiness`命令检查哪个通道成员批准了链码定义。
+
+
+
+**提交定义的步骤**
+
+1. 首先将提交链码定义的交易提案发送给对等方；
+
+2. 对等方查询链码定义，并在其组织批准的情况下背书该定义；
+3. 然后，以**组织管理员**身份，将背书的交易提交给排序服务；
+4. 排序服务将链码定义**提交给通道**。
+
+
+
+1. 在将定义成功提交到渠道之前，需要批准组织的数量由 `Channel/Application/LifecycleEndorsement`策略控制。
+   - 默认情况下，此策略要求渠道中的大多数组织都认可该交易，属于**隐元策略**。  
+
+2. `LifecycleEndorsement`策略与链码认可策略`Endorsement`是不同的。
+   - 例如，即使链码认可策略仅需要一个或两个组织的签名，但默认大多数渠道成员仍需要首先批准链码定义。
+3. 还可以将`Channel/Application/LifecycleEndorsement`策略设置为**签名策略**，并在通道上显式指定可以批准链码定义的组织集。
+   - 这使您可以创建一个通道，由一定数量的组织充当链码管理员，并管理该通道使用的业务逻辑。
+   - 如果您的频道有大量的Idemix组织（身份混合，Identity Mix），它们不能批准链码定义或认可链码，设置签名策略可能阻止通道占多数（没看懂原文`which cannot approve chaincode definitions or endorse chaincode and may prevent the channel from reaching a majority as a result.`）。
+
+![将链码定义提交给通道](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-commit.png)
+
+
+
+**注意**
+
+- 组织可以批准链码定义而不安装链码包。如果组织不需要使用链码，则他们可以批准没有包标识符的链码定义，以确保满足`Lifecycle Endorsement`的默认隐元策略。
+- 在将链代码定义**提交后**，链码容器将在已安装链码的所有对等方上启动。启动chaincode容器可能需要几分钟。
+
+![在频道上启动链码](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-start.png)
+
+
+
+
+
+### 升级链码流程
+
+升级链码的生命周期与安装和启动链码相同。你可以升级链码二进制文件，或仅更新链码策略。
+
+1. **重新打包链码：**仅在升级链码二进制文件时才需要完成此步骤。
+
+   ![重新包装chaincode包](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-upgrade-package.png)
+
+   
+
+2. **在对等方上安装新的chaincode软件包：**再次，如果要升级chaincode二进制文件，则仅需要完成此步骤。安装新的chaincode软件包将生成一个软件**包ID**，您需要将其传递给新的chaincode定义。您还需要**更改链码版本**，生命周期流程将使用它来跟踪链码二进制文件是否已升级。
+
+   ![重新安装chaincode包](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-upgrade-install.png)
+
+   *Org1和Org2在同级上安装新软件包。安装将创建一个新的packageID。*
+
+3. **批准新的链码定义：**
+
+   - 如果要升级链码二进制文件，则需要更新链码定义中的**链码版本**和**程序包ID**。
+   - 若更新链码认可策略，则不必重新打包链码二进制文件。通道成员只需要批准新政策的定义。新定义需要将定义中的**序列**变量加1。
+
+   ![批准新的链码定义](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-upgrade-approve.png)
+
+   *Org1和Org2的组织管理员为各自的组织批准新的链码定义。新定义引用了新的packageID并更改了链码版本。由于这是链码的第一次更新，因此序列从一递增到二。*
+
+4. **将定义提交给渠道：**当足够数量的渠道成员批准了新的链码定义时，一个组织可以提交新定义以将链码定义升级到渠道。作为生命周期过程的一部分，没有单独的升级命令。
+
+   ![向频道提交新定义](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-upgrade-commit.png)
+
+   *来自Org1或Org2的组织管理员将新的链码定义提交到通道。*
+
+- 提交链码定义后，将使用升级的链码二进制文件中的代码启动新的链码容器。
+- 如果在不更改链码版本的情况下更新了链码定义，则链码容器将保持不变，并且您无需调用`Init`函数。
+
+![升级链码](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-upgrade-start.png)
+
+*将新定义提交到通道后，每个对等方将自动启动新的chaincode容器。*
+
+
+
+**注意**
+
+- 链码生命周期使用链码定义中的**序列**来跟踪升级。所有通道成员都需要将序列号增加一个，并批准新的定义以升级链码。
+- 而**版本参数**用于跟踪链码二进制文件，**仅在升级链码二进制文件时才需要更改**。
+
+
+
+### 其他部署方案的流程
+
+以下示例说明了如何使用Fabric链码生命周期来管理通道和链码。
+
+
+
+#### 新组织加入频道
+
+新的组织可以使用已定义的链码加入频道，并在**安装**链码包并**批准**已经提交（注意不用再次提交）给该频道的链码定义后开始使用链码。
+
+![批准链码定义](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-join-approve.png)
+
+*Org3加入频道并批准先前由Org1和Org2提交给频道的相同链码定义。*
+
+批准链码定义后，新组织可以在将软件包安装到对等方后开始使用链码。该定义不需要再次提交。如果将背书策略设置为默认策略，需要大多数渠道成员的背书，则背书策略将自动更新以包括新组织。
+
+![启动链码](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-join-start.png)
+
+*链码容器将在Org3对等体上首次调用链码后启动。*
+
+
+
+#### 更新背书政策
+
+您可以使用链码定义来更新背书策略，而不必重新打包或重新安装链码。
+
+通道成员可以**批准**带有新认可策略的链码定义，并将其**提交**给渠道。
+
+![批准新的链码定义](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-endorsement-approve.png)
+
+*Org1，Org2和Org3批准了一项新的认可政策，要求所有三个组织都认可一项交易。它们将定义序列从一增加到两，但是不需要更新链码版本。*
+
+新的认可政策将在将新定义提交给渠道后生效。通道成员不必通过调用链码或执行`Init`功能来重启链码容器即可更新背书策略。
+
+![提交新的链码定义](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-endorsement-commit.png)
+
+*一个组织将新的链码定义提交给渠道以更新认可策略。*
+
+
+
+#### 批准定义而不安装链码的情况
+
+您可以批准链码定义而不安装链码包。
+
+即使不想使用某链码，由于默认的`LifecycleEndorsement`隐元策略，大多数节点需要批准该链码。
+
+您需要批准与通道的其他成员相同的参数，但是不需要将packageID包含在链码定义中。
+
+![Org3不安装链码](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-no-package.png)
+
+*Org3不会安装chaincode软件包。结果，他们不需要提供packageID作为链码定义的一部分。但是，Org3仍然可以认可已提交给该频道的MYCC的定义。*
+
+
+
+#### 某组织不批准链码定义的情况
+
+不批准已提交给渠道的链码定义的组织不能使用链码。未批准链码定义的组织将无法在其对等方上执行链码。
+
+![Org3对Chaincode持不同意见](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-one-disagrees.png)
+
+*Org3批准的链码定义具有与Org1和Org2不同的认可策略。结果，Org3无法在通道上使用MYCC链码。但是，Org1或Org2仍然可以获得足够的认可，以将定义提交到通道并使用链码。链码中的交易仍将添加到分类帐中并存储在Org3对等项中。但是，Org3将无法认可交易。*
+
+组织可以批准具有任何序列号或版本的新链码定义。这使您可以批准已提交给通道的定义并开始使用链码。您也可以批准新的链码定义，以更正在批准或打包链码过程中犯的任何错误。
+
+
+
+#### 链码定义未通过批准策略的情况
+
+如果渠道上的组织不同意链码定义，则无法将该定义提交给渠道。任何频道成员都将无法使用链码。
+
+![多数人不同意上链代码](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-majority-disagree.png)
+
+*Org1，Org2和Org3都认可不同的链码定义。结果，该频道的任何成员都无法获得足够的认可以将链码定义提交给该频道。任何频道成员都无法使用链码。*
+
+
+
+#### 组织安装不同的链码包ID的情况
+
+每个组织在批准链码定义时都可以使用不同的packageID。
+
+这允许通道成员安装不同链码二进制文件，但使用相同背书策略，并在同一链码命名空间中读写数据。
+
+组织可以使用此功能来安装包含其组织的特定业务逻辑的智能合约。
+
+![使用不同的chaincode二进制文件](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-binaries.png)
+
+*Org1和Org2每个都安装MYCC链码的版本，其中包含特定于其组织的业务逻辑。*
+
+
+
+#### 使用一个包创建多个链码的情况
+
+您可以通过批准并提交多个链码定义来使用一个链码包在通道上创建多个链码实例。每个定义都需要指定一个不同的链码名称。这使您可以在一个通道上运行智能合约的多个实例，但是要让合约遵循不同的背书策略。
+
+![启动多个链码](https://hyperledger-fabric.readthedocs.io/en/release-2.2/_images/Lifecycle-multiple.png)
+
+*Org1和Org2使用MYCC_1链码包来批准和提交两个不同的链码定义。结果，两个对等方都在其对等方上运行了两个chaincode容器。MYCC1的背书政策为2分之一，而MYCC2的背书政策为2分之2。*
+
+
+
 
 
 ## 私有数据
+
+
+
+
 
 
 
