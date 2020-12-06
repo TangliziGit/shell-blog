@@ -222,11 +222,11 @@
    #!/usr/bin/bash
    # master-init.sh
    kubeadm init \
-     --apiserver-advertise-address=192.168.1.5 \
+     --apiserver-advertise-address 192.168.1.5 \
      --image-repository registry.aliyuncs.com/google_containers \
      --kubernetes-version v1.19.0 \
-     --service-cidr=10.96.0.0/12 \
-     --pod-network-cidr=10.244.0.0/16
+     --service-cidr 10.96.0.0/12 \
+     --pod-network-cidr 10.244.0.0/16
    
    kubectl apply -f https://raw.sevencdn.com/coreos/flannel/master/Documentation/kube-flannel.yml
    ```
@@ -234,3 +234,233 @@
 6. 然后通过一个nginx来确认集群是否正常运行
 
    注意同时所有节点`Ready`后，才说明正常启动
+
+
+
+### 资源编排配置文件
+
+k8s使用yaml格式进行资源编排，需要注意的是配置文件分为两个部分：控制器配置，被控制对象的配置。
+
+使用`create`或`get`命令可以快速生成需要的yaml配置模板，或导出已有的配置，你可以对它进行修改使用。
+
+例：
+
+```bash
+kubectl create deployment nginx --image nginx -o yaml --dry-run > nginx.yaml
+
+kubectl get deployment nginx -o yaml > nginx.yaml
+```
+
+
+
+### Pod
+
+
+
+#### 基本概念
+
+- 最小部署单元
+- 是一组容器的集合（每个pod存在一个Pause容器即根容器）
+- pod中的容器共享一个网络命名空间
+- 生命周期是短暂的
+
+
+
+#### 特性
+
+- Pod下运行应用的一个实例，即多个容器（容器进程最好是一对一的）
+- 利于亲密型应用：多个应用之间进行频繁的网络交互
+
+
+
+#### 共享
+
+- 网络：<s>通过Pause容器创建网桥，其他容器加入网桥，即在网桥的子网中分配一个ip，由路由表、iptables和驱动实现</s>
+
+  注意具体容器都共享了pause容器的网络，而pause容器IpcMode为sharable，且网络类型为none
+
+- 存储：即共享数据卷，由驱动实现
+
+
+
+#### 配置
+
+1. 镜像拉取策略`imagePullPolicy`：有三种，是否主动拉取容器
+
+2. 资源限制`resources.limit/requests`：对CPU和MEM进行最大/最小限制
+3. 重启策略`restartPolicy`：三种，类似Docker
+4. 健康检查策略：
+   - 存活检查`livenessProbe`：若检查失败则杀死
+   - 就绪检查`readinessProbe`：若检查失败则把Pod剔除出service
+   - 检查方式：`httpGet`状态码范围，`exec`返回状态码为0，`tcpSocket`建立成功
+
+
+
+#### 创建流程
+
+1. master 节点
+   1. apiserver 受到 create Pod 请求，创建 Pod，并写入 etcd
+   2. Scheduler 获得新的Pod，进行调度；同时 apiserver 受到调度成功响应，写入etcd
+2. worker 节点
+   1. kubelet 获得Pod，同时启动容器；向 apiserver 返回状态响应，写入 etcd
+
+
+
+#### 影响调度的因素
+
+1. 资源限制策略`resources`
+2. 基于标签：
+   1. 节点选择器`nodeSelector`：标签
+   2. 节点亲和性`nodeAffinity`
+      1. 硬亲和性：条件必须满足
+      2. 软亲和性：偏好，但不必须
+3. 污点 & 污点容忍：设置某节点的特殊调度方式，以拒绝调度
+   - 在node上设置一个或多个Taint后，除非pod明确声明能够容忍这些“污点”，否则无法在这些node上运行。
+   - 污点值：`NoSchedule`,`PerferNoSchedule`,`NoExecute`
+   - 常见应用场景：节点独占，特殊硬件标签，节点故障标签
+
+
+
+节点设置举例：
+
+```bash
+# label CRUD
+kubectl label node NAME key=value
+kubectl label node NAME key-
+kubectl label node NAME key=value --overwirte
+kubectl get node --show-labels
+kubectl get node -l "key=value"
+kubectl get node -l "key!=value"
+
+# Taint CRUD
+kubectl describe node NAME | grep 
+kubectl taint node NAME type=value:TIANT
+kubectl taint node NAME type:TIANT-
+```
+
+
+
+### Controller - Deployment
+
+Controller是通过label建立Pod的关联，在集群上管理和运行Pod和容器的对象。它负责Pod生命周期和规模，进行升级回滚操作。
+
+
+
+#### 使用deployment控制器部署
+
+```bash
+# 创建 deployment 配置
+kubectl create deployment nginx --image nginx --dry-run client -o yaml > nginx-dep.yaml
+vim nginx.yaml
+kubectl apply -f nginx.yaml
+
+# 创建 service 配置
+kubectl expose deployment nginx --port=80 --target-port=80 --type=NodePort --name=nginx1 --dry-run=client -o yaml > nginx-svc.yaml
+kubectl apply -f nginx-expose.yaml
+
+kubectl get pods,svc
+```
+
+
+
+#### 升级与回滚
+
+```bash
+kubectl set image deployment web nginx=nginx:1.15
+# 查看升级状态 / 历史
+kubectl rollout status deployment web
+kubectl rollout history deployment web
+# 回滚
+kubectl rollout undo deployment web
+kubectl rollout undo deployment web --to-version=1
+```
+
+注意：升级是一个个容器进行，只有在新版本容器启动后，再删除就有容器
+
+
+
+#### 弹性伸缩
+
+```bsah
+kubectl scale deployment web --replicas=10
+```
+
+
+
+### Service
+
+统一访问接口，定义Pod规则。意义在于：
+
+1. 服务发现：类似与命名服务，Pod进行注册，可以动态访问并防止Pod失联
+2. 负载均衡：定义Pod访问策略
+
+Service也是通过label和selector与Pod建立关系。
+
+
+
+#### 常用的三种类型
+
+> https://mp.weixin.qq.com/s/dHaiX3H421jBhnzgCCsktg
+
+1. `ClusterIP`：集群内部使用
+2. `NodePort`：对外访问使用
+3. `LoadBalancer`：对外使用，也可用于<u>共有云</u>
+
+
+
+### Controller - StatefulSet
+
+无状态 vs. 有状态
+
+1. 无状态：
+   - 每个Pod都是一样的
+   - 没有启动顺序要求
+   - 不用考虑在那个node执行
+   - 随意水平扩展
+2. 有状态
+   - 每个Pod是独立的，保持启动顺序和唯一性
+   - 唯一性：网络标识符，持续存储等
+   - 有序性：mysql主从
+
+
+
+#### 配置
+
+**Headless Service**
+
+是指 spec.clusterIP 设置成 None 的 Service。
+
+因为没有ClusterIP，kube-proxy 并不处理此类服务，因为没有load balancing或 proxy  代理设置，在访问服务的时候回返回后端的全部的Pods IP地址，主要用于开发者自己根据pods进行负载均衡器的开发(设置了selector)。
+
+
+
+### Controller - DaemonSet
+
+每个节点都运行一个同样的Pod。
+
+
+
+### Controller - Job & CronJob
+
+Job：仅运行一次
+
+CronJob：定时运行
+
+
+
+### 配置管理
+
+#### Secret
+
+将编码的数据存在etcd中，Pod容器以Volume方式或环境变量进行访问。
+
+1. 创建：创建secret加密数据，使用`create -f secret.yaml`
+2. 使用：
+   - 在其他pod配置中使用此数据使用`env`，作为环境变量
+   - 在其他pod配置中使用此数据使用`volume.secret`，作为卷中的文件
+
+
+
+#### ConfigMap
+
+存储不编码的数据于etcd，Pod容器以Volume方式或环境变量进行访问。
