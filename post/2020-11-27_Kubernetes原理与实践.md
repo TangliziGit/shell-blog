@@ -98,6 +98,8 @@
 
 ## 核心概念
 
+> 首先简单过一遍仅做扫盲，具体内容再看书一次
+
 
 
 ### 简介
@@ -464,3 +466,239 @@ CronJob：定时运行
 #### ConfigMap
 
 存储不编码的数据于etcd，Pod容器以Volume方式或环境变量进行访问。
+
+
+
+### 集群安全机制
+
+
+
+#### 概述
+
+1. 访问集群需要进行：认证、健全和准入控制
+2. 访问需要通过apiserver，它做同一协调
+
+
+
+1. 认证
+   - 传输安全：对外不保留8080端口
+   - 认证：ca证书、token、用户名密码
+2. 鉴权
+   - RBAC鉴权（基于角色访问控制）
+
+3. 准入
+   - 类似访问控制器列表？
+
+
+
+#### RBAC鉴权
+
+- 基于命名空间
+- 角色：role、ClusterRole
+- 角色绑定：roleBinding、ClusterRoleBinding
+- 主体：user、group、serviceAccount
+
+```bash
+kubectl create ns demo
+kubectl run nignx --image=nginx -n demo
+
+# 创建角色
+# role.yaml 定义了一个角色 pod-reader 和这个角色的行为
+kubectl apply -f role.yaml
+kubectl get role -n demo
+
+# 创建角色绑定
+# role-binding.yaml 定义了一个角色绑定 read-pods 和主体（包括用户和角色）
+kubectl apply -f role-binding.yaml
+kubectl get role,rolebinding -n demo
+
+# 用证书识别身份并登录
+kubectl config ...
+
+# 可尝试正确性
+...
+```
+
+
+
+## 其他
+
+
+
+### Ingress
+
+NodePort的缺点
+
+- 每个节点都开启端口，都可以访问
+- 实际访问应使用域名，跳转到不同的端口服务中
+
+
+
+#### 概念
+
+Ingress 作为同一的service的访问入口，service再进行pod的服务发现。
+
+
+
+#### 部署
+
+1. 创建引用，通过NortPort Service暴露（ClusterIP 应该也可以）
+2. 编写yaml配置，应用，之后可编写`Kind: Ingress`的Pod配置
+3. 创建Ingress规则，什么域名访问什么service的什么内部端口
+
+
+
+### Helm
+
+1. Helm可以降一组yaml作为一个整体，实现高校复用
+   - 原有部署方式：Deployment Service Ingress;
+   - 仅适合单一应用，当微服务等时将维护大量配置
+2. Helm应用级别的版本管理
+
+Helm是K8s的包管理工具，类似pacman、pip、npm
+
+
+
+#### 概念
+
+- Helm：CLI client
+- Chart：是描述应用的集合，yaml打包
+- Release：基于chart的部署实体，是应用级别的版本管理
+
+
+
+#### 演示
+
+```bash
+# repo CRUD
+helm repo add aliyun http://...
+helm repo list
+helm repo remove aliyun
+helm repo update
+
+# install app
+helm search repo NAME
+helm install NAME APP_NAME
+helm list 
+helm statu NAME
+
+# edit service configuration
+kubectl edit svc XXX
+
+# custom chart
+helm create chart CHART_NAME/
+# Chart.yaml: chart属性配置信息
+# templates: 防止 yaml 文件
+# values.yaml: yaml 的全局环境变量
+helm install APP_NAME CHART_NAME/
+helm upgrade APP_NAME CHART_NAME/
+
+# reuse
+```
+
+
+
+### 持久存储
+
+数据卷emptydir是本地存储，pod重启则消失
+
+- NFS（Docker 也有 NFS 文件存储）
+
+  ```bash
+  # on NFS server
+  yum install -y nfs-utils
+  mkdir -p /data/nfs
+  cat >> /etc/exports << EOF
+  /data/nfs *(rw,no_root_squash)
+  EOF
+  systectl enable --now nfs 
+  
+  # on K8S master server
+  yum install -y nfs-utils
+  cat >> pod.yaml << EOF
+  ...
+  
+  spec.containers.volumeMounts.name: NAME 
+  spec.containers.volumeMounts.mountPath: 目标
+  spec.volumes.name: NAME
+  spec.volumes.nfs.server: IP(明文)
+  spec.volumes.nfs.path: /data/nfs(明文)
+  ...
+  EOF
+  ```
+
+- PersistentVolume & PersistentVolumeClaim
+
+  - PV 作为存储，PVC 作为中间层提供配额等服务；
+
+
+
+### 集群资源监控
+
+#### 监控指标
+
+- 集群监控：节点利用率，节点数，运行pods
+- Pod监控：容器指标、应用指标
+
+
+
+#### 监控平台方案
+
+Prometheus + Grafana（类似ELK）
+
+1. Prometheus：HTTP接口定时抓取状态；监控、报警、数据库
+2. Grafana：数据分析和可视化工具；支持多种数据源
+
+
+
+**部署流程**
+
+1. 部署Prometheus的守护进程`DaemonSet`和`NodePort`：prom/node-exporter
+2. 部署Prometheus：应用Pod、应用expose、RBAC权限、ConfigMap配置
+3. 部署Grafana：应用Pod、应用expose、应用Ingress
+4. 配置Grafana：
+   1. web进入配置Prometheus数据源（注意是集群内部的访问配置）
+   2. 配置界面数据模板
+
+
+
+### 高可用
+
+单master节点，存在master挂掉的问题。
+
+
+
+#### 简介
+
+多master节点会存在一个 LoadBalancer 来分发工作节点到Master：
+
+1. 作为负载均衡
+2. 检查master节点状态
+3. 使用虚拟IP（即VIP）来避免直接使用master的IP
+
+
+
+#### 大致结构
+
+使用 **keepalived** 实现高可用解决单点故障
+
+用 **haproxy** 进行负载均衡
+
+1. 存在一个VIP
+
+2. 每个Master中额外配置：
+   - keepalived：用于配置虚拟IP、查看是否存活
+   - haproxy / nginx：用于负载均衡
+
+
+
+#### 流程
+
+1. 配置Master1
+   1. 部署keepalived和haproxy（注意一个网卡可以有一个IP和一个VIP？）
+   2. `kubeadm init --config kubeadm.yaml`
+2. 配置Master2
+   1. 部署keepalived和haproxy
+   2. 加入集群
+3. 配置节点
+   1. 加入集群
