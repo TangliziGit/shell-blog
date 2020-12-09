@@ -202,33 +202,6 @@ Kubernetes API 使你可以查询和操纵 Kubernetes API 中对象（例如：P
 
 
 
-### 简介
-
-
-
-#### Pod
-
-- 是k8s中部署的最小单元
-- 是一组容器的集合
-- 共享一组网络
-- 生命周期是短暂的
-
-
-
-#### Controller
-
-- 确保预期Pod数量
-- 有无状态应用部署 负责Pod生命周期
-- 执行一次性任务和定时任务
-
-
-
-#### Service
-
-- 提供统一对外接口，定义pod访问规则
-
-
-
 ### 对象
 
 *对象* 是持久化的实体，可被`yaml`文件描述：
@@ -363,6 +336,29 @@ kubectl get statefulsets,services --all-namespaces --field-selector metadata.nam
 
 
 
+### 容器
+
+
+
+#### Runtime Class
+
+你可以在不同的 Pod 设置不同的 RuntimeClass，以提供性能与安全性之间的平衡。
+
+你需要配置：
+
+1. 节点上配置CRI的RuntionClass
+2. 创建RuntimeClass对象，其中hander指明CRI的RuntimeClass的实现
+3. 在其他Pod中，填写runtimeClassName
+
+
+
+#### 容器生命周期回调
+
+在`spec.containers.lifecycle`中有两个回调暴露给容器：
+
+1. `PostStart`：在容器被创建之后立即被执行。
+2. `PreStop`：在容器被终止之前， 此回调会被调用。 此调用是阻塞同步调用，因此必须在发出删除容器的信号之前完成。 
+
 
 
 ### Pod
@@ -373,38 +369,114 @@ kubectl get statefulsets,services --all-namespaces --field-selector metadata.nam
 
 - 最小部署单元
 - 是一组容器的集合（每个pod存在一个Pause容器即根容器）
-- pod中的容器共享一个网络命名空间
-- 生命周期是短暂的
+- pod中的容器共享一组命名空间、控制组等隔离单元和存储卷
+- 是相对临时性的、用后即抛的一次性实体
+  - Pod 由你或者间接地由 [控制器](https://kubernetes.io/zh/docs/concepts/architecture/controller/) 创建
+  - 当Pod 结束执行、Pod 对象被删除、Pod 因资源不足而被 *驱逐* 或者节点失效，则终结
+
+注意：重启 Pod 中的容器不应与重启 Pod 混淆。 Pod 不是进程，而是容器运行的环境。 在被删除之前，Pod 会一直存在。
 
 
 
-#### 特性
+#### 使用
 
-- Pod下运行应用的一个实例，即多个容器（容器进程最好是一对一的）
-- 利于亲密型应用：多个应用之间进行频繁的网络交互
-
-
-
-#### 共享
-
-- 网络：<s>通过Pause容器创建网桥，其他容器加入网桥，即在网桥的子网中分配一个ip，由路由表、iptables和驱动实现</s>
-
-  注意具体容器都共享了pause容器的网络，而pause容器IpcMode为sharable，且网络类型为none
-
-- 存储：即共享数据卷，由驱动实现
+- 通常你不需要直接创建 Pod，而是使用**工作负载资源**来创建 Pod。
+- **运行单个容器的 Pod**
+  - 将 Pod 看作单个容器的包装器
+- **运行单个容器的 Pod**
+  - 封装由多个紧密耦合且需要共享资源的共处容器组成的应用程序
+  - 只有在一些场景中，容器之间紧密关联时你才应该使用这种模式。
+- 横向扩展应用程序被称为副本。 通常使用一种工作负载资源及其[控制器](https://kubernetes.io/zh/docs/concepts/architecture/controller/) 来创建和管理一组 Pod 副本。
 
 
 
-#### 配置
+#### 共享网络与存储
+
+Pod 天生地为其成员容器提供了两种共享资源：
+
+- 网络：
+  - 每个 Pod 都在每个地址族中获得一个唯一的 IP 地址。 
+  - 在同一个 Pod 内，所有容器共享一个 IP 地址和端口空间，并且可以通过 `localhost` 发现对方。
+  - 他们也能通过如 **SystemV 信号量或 POSIX 共享内存**这类标准的进程间通信方式互相通信。
+  - 注意：具体容器都共享了pause容器的网络，而pause容器IpcMode为sharable，且网络类型为none
+  - 详见：<https://kubernetes.io/zh/docs/concepts/cluster-administration/networking/>
+- 存储：即共享数据卷，详见<https://kubernetes.io/zh/docs/concepts/storage/>
+
+
+
+#### Pod模板
+
+[负载](https://kubernetes.io/zh/docs/concepts/workloads/)资源的控制器通常使用 Pod 模板 来替你创建 Pod 并管理它们，是负载资源的目标状态的一部分。
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lifecycle-demo
+# 以下是Pod的配置文件
+# 请对比后文的pod template
+spec:
+  containers:
+  - name: lifecycle-demo-container
+    image: nginx
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message"]
+      preStop:
+        exec:
+          command: ["/bin/sh","-c","nginx -s quit; while killall -0 nginx; do sleep 1; done"]
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hello
+spec:
+  template:
+    # 这里是 Pod 模版
+    spec:
+      containers:
+      - name: hello
+        image: busybox
+        command: ['sh', '-c', 'echo "Hello, Kubernetes!" && sleep 3600']
+      restartPolicy: OnFailure
+    # 以上为 Pod 模版
+```
+
+
 
 1. 镜像拉取策略`imagePullPolicy`：有三种，是否主动拉取容器
-
+   - `always`：默认参数，相当于在镜像后添加`latest`或者不写
 2. 资源限制`resources.limit/requests`：对CPU和MEM进行最大/最小限制
 3. 重启策略`restartPolicy`：三种，类似Docker
 4. 健康检查策略：
    - 存活检查`livenessProbe`：若检查失败则杀死
    - 就绪检查`readinessProbe`：若检查失败则把Pod剔除出service
    - 检查方式：`httpGet`状态码范围，`exec`返回状态码为0，`tcpSocket`建立成功
+
+
+
+
+
+#### 生命周期
+
+- 起始于 `Pending` 阶段如果至少 其中有一个主要容器正常启动，则进入 `Running`，之后取决于 Pod 中是否有容器以 失败状态结束而进入 `Succeeded` 或者 `Failed` 阶段。
+- Pod 在其生命周期中**只会被调度一次**。 一旦 Pod 被调度（分派）到某个节点，Pod 会一直在该节点运行，直到 Pod 停止或者 被[终止](https://kubernetes.io/zh/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination)。
+
+- **Pod 自身不具有自愈能力。**如果 Pod 被调度到某[节点](https://kubernetes.io/zh/docs/concepts/architecture/nodes/) 而该节点之后失效，或者调度操作本身失效，Pod 会被删除；与此类似，Pod 无法在节点资源 耗尽或者节点维护期间继续存活。Kubernetes 使用一种高级抽象，称作 [控制器](https://kubernetes.io/zh/docs/concepts/architecture/controller/)，来管理这些相对而言 可随时丢弃的 Pod 实例。新 Pod 的名字可以不变，但是其 UID 会不同。
+- 如果某物声称其生命期与某 Pod 相同，例如存储[卷](https://kubernetes.io/zh/docs/concepts/storage/volumes/)， 这就意味着如果 Pod 因为任何原因被删除，甚至某完全相同的替代 Pod 被创建时， 这个**相关的对象也会被删除并重建**。
+
+| 取值        | 描述                                                         |
+| ----------- | ------------------------------------------------------------ |
+| `Pending`   | Pod 已被 Kubernetes 系统接受，但有一个或者多个容器尚未创建亦未运行。此阶段包括等待 Pod 被调度的时间和通过网络下载镜像的时间， |
+| `Running`   | Pod 已经绑定到了某个节点，Pod 中所有的容器都已被创建。至少有一个容器仍在运行，或者正处于启动或重启状态。 |
+| `Succeeded` | Pod 中的所有容器都已成功终止，并且不会再重启。               |
+| `Failed`    | Pod 中的所有容器都已终止，并且至少有一个容器是因为失败终止。也就是说，容器以非 0 状态退出或者被系统终止。 |
+| `Unknown`   | 因为某些原因无法取得 Pod 的状态。这种情况通常是因为与 Pod 所在主机通信失败。 |
+
+
 
 
 
