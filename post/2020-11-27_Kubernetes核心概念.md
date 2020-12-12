@@ -1,4 +1,3 @@
-
 <!-- vim-markdown-toc Marked -->
 
 * [Kubernetes 原理与实践](#kubernetes-原理与实践)
@@ -9,7 +8,7 @@
 
 <!-- vim-markdown-toc -->
 
-# Kubernetes 原理与实践
+# Kubernetes 核心概念
 
 > 大部分引用自官方文档v1.19
 
@@ -498,6 +497,20 @@ spec:
 
 
 
+#### 容器重启策略
+
+Pod 的 `spec` 中包含一个 `restartPolicy` 字段，其可能取值包括 Always、OnFailure 和 Never。默认值是 Always。
+
+`restartPolicy` 适用于 Pod 中的所有容器。`restartPolicy` 仅针对同一节点上 `kubelet` 的容器重启动作。当 Pod 中的容器退出时，`kubelet` 会按指数回退 方式计算重启的延迟（10s、20s、40s、...），其最长延迟为 5 分钟。 一旦某容器执行了 10 分钟并且没有出现问题，`kubelet` 对该容器的重启回退计时器执行 重置操作。
+
+
+- Always：当容器失效时，由kubelet自动重启该容器。
+- OnFailure：当容器终止运行且退出码不为0时，由kubelet自动重启该容器。
+- Never：不论容器运行状态如何，kubelet都不会重启该容器。
+
+
+
+
 ### 创建流程
 
 > TODO
@@ -512,8 +525,6 @@ spec:
 
 ### 影响调度的因素
 
-> TODO
-
 1. 资源限制策略`resources`
 2. 基于标签：
    1. 节点选择器`nodeSelector`：标签
@@ -526,6 +537,30 @@ spec:
    - 在node上设置一个或多个Taint后，除非pod明确声明能够容忍这些“污点”，否则无法在这些node上运行。
    - 污点值：`NoSchedule`,`PerferNoSchedule`,`NoExecute`
    - 常见应用场景：节点独占，特殊硬件标签，节点故障标签
+
+
+
+#### 资源配额
+
+> TODO
+
+
+
+#### 节点亲和性
+
+> TODO
+
+
+
+#### 拓扑分布约束
+
+> TODO
+
+
+
+#### 污点与污点容忍
+
+> TODO
 
 
 
@@ -606,7 +641,7 @@ Init 容器支持应用容器的全部字段和特性，包括资源限制、数
 
 
 
-#### vs. ReplicationController
+#### vs. RC
 
 二者目的相同且行为类似，只是 ReplicationController 不支持 [标签用户指南](https://kubernetes.io/zh/docs/concepts/overview/working-with-objects/labels/#label-selectors) 中讨论的**基于集合的选择算符**需求。 因此，相比于 ReplicationController，应优先考虑 ReplicaSet。
 
@@ -836,9 +871,7 @@ spec:
 
 
 
-
-
-## DaemonSet
+### DaemonSet
 
 确保全部（或者某些）节点上运行一个 Pod 的副本。删除 DaemonSet 将会删除它创建的所有 Pod。
 
@@ -856,7 +889,48 @@ spec:
 
 - Job 会创建一个或者多个 Pods，并**确保指定数量**的 Pods 成功终止，任务即结束。
 -  删除 Job 的操作会清除所创建的全部 Pods。
-- **场景**：创建一个 Job 对象以便以一种可靠的方式运行某 Pod 直到完成
+
+
+
+#### 使用场景
+
+| Job类型               | 使用示例                | 行为                                         | completions | Parallelism |
+| --------------------- | ----------------------- | -------------------------------------------- | ----------- | ----------- |
+| 一次性Job             | 数据库迁移              | 创建一个Pod直至其成功结束                    | 1           | 1           |
+| 固定结束次数的Job     | 处理工作队列的Pod       | 依次创建一个Pod运行直至completions个成功结束 | 2+          | 1           |
+| 固定结束次数的并行Job | 多个Pod同时处理工作队列 | 依次创建多个Pod运行直至completions个成功结束 | 2+          | 2+          |
+
+
+
+#### 失效场景
+
+- 容器失效：重启策略（注意重启策略是针对容器的）
+  - `OnFailure`：**Pod 则继续留在当前节点，但容器会被重新运行**
+    - 例：其中的进程退出时返回值非零， 或者容器因为超出内存约束而被杀死等等。
+  - `Never`
+  - `Always`：不支持
+
+- Pod失效：Job 控制器会启动一个新的 Pod，使用指数型回退计算重试延迟（10s - 6min）
+- Job失效：回退失效`backoffLimit`与超时`activeDeadlineSeconds`
+
+
+
+#### 终止与清理
+
+- Job 完成后，已有的 Pod 和 Job 本身不会被删除，这样你就可以查看它的状态和日志。
+- `backoffLimit`：一旦重试次数到达所设的上限，Job 会被标记为失败， 其中运行的 Pods 都会被终止。
+- `activeDeadlineSeconds`：一旦 Job 运行时间达到 ，其所有运行中的 Pod 都会被终止。
+- `ttlSecondsAfterFinished`：alpha特性，在Job完成后的n秒后，级联删除Job
+
+
+
+#### 注意
+
+- restartPolicy只支持OnFailure和Never，不支持Always
+- 实际在任意时刻运行状态的 Pods 个数，可能比并行性请求略大或略小
+- 建议在调试 Job 时将 `restartPolicy` 设置为 "Never"，而非`OnFailure`
+
+
 
 ```yaml
 apiVersion: batch/v1
@@ -874,13 +948,23 @@ spec:
   backoffLimit: 4
 ```
 
-> TODO: 并行 终止与清除 Job模式 高级用法
-
 
 
 ### CronJob
 
-用 [Cron](https://en.wikipedia.org/wiki/Cron) 格式进行编写， 并周期性地在给定的调度时间执行 Job。
+用 [Cron](https://en.wikipedia.org/wiki/Cron) 格式进行编写， 并周期性地在给定的调度时间**创建并执行 Job**。
+
+
+
+#### 时间安排
+
+1. 开始的期限`startingDeadlineSeconds`
+   - 过了截止时间，CronJob 就不会开始 Job，任务会被统计为失败任务。
+   - 当错过了100次以上的调度，CronJob 就不再调度了。若开始期限没有设定，则统计从最后一次调度开始的失败次数。
+2. 并发策略`concurrencyPolicy`：当新任务执行时，旧任务没有处理完
+   - `Allow` (默认)：CronJob 允许并发任务执行。
+   - `Forbid`： 忽略新任务的执行。
+   - `Replace`：用新任务替换当前正在运行的任务。
 
 
 
@@ -919,28 +1003,70 @@ spec:
 
 ### 垃圾收集
 
+垃圾收集器的作用是删除某些曾经拥有属主（Owner）但现在不再拥有属主的对象。
+
+
+
+#### 所有者和附属
+
+- Kubernetes 会自动设置 `ownerReference` 的值。 由 ReplicationController、ReplicaSet、StatefulSet、DaemonSet、Deployment、 Job 和 CronJob 所创建或管理的对象。
+- 用户也可以自行管理所有者和附属
+
+
+
+#### 级联删除
+
+如果删除对象时，不自动删除它的附属，这些附属被称作 **孤立对象** 。
+
+1. **前台级联删除**（自下而上）
+
+   - 当所有者被删除时，会进 deletion in progress状态，
+   - 在这种删除策略中，所有者对象的删除将会持续到其所有从属对象都被删除为止。
+   - 一旦对象被设置为 “正在删除” 状态，垃圾回收器将删除其从属对象。当垃圾回收器已经删除了所有的 ownerReference.blockOwnerDeletion=true 的对象后，将删除所有者对象。
+
+2. **后台级联删除**（自上而下）立即删除所有者，同时垃圾回收器在后台删除从属对象。
+
+
+
+#### 注意
+
+- kubernetes 不允许跨命名空间指定属主。
+
 
 
 ### TTL 控制器
 
+这是一个alpha特性，并且目前只处理 Job。
+
+用于在一段时间内自动清理已结束的作业。
 
 
 
 
-## 服务
 
-> TODO
+## 核心概念 - 服务与网络
+
+Kubernetes 网络解决四方面的问题：
+
+- 同 Pod 中**容器间通信**
+- 同集群中 **pod 间通信**
+- 集群外部的访问**对外暴露**的 Pods 中的应用
+- 仅供集群**内部访问**的服务。
 
 
 
 ### Service
 
-统一访问接口，定义Pod规则。意义在于：
+为一组功能相同的Pod 提供统一访问接口。Kubernetes 为 Pods 提供自己的 IP 地址，并为一组 Pod 提供相同的 DNS 名， 并且可以在它们之间进行负载均衡。
+
+
+
+#### 目的
+
+Pod 是动态添加和删除的，其访问地址需要维护不变。
 
 1. 服务发现：类似与命名服务，Pod进行注册，可以动态访问并防止Pod失联
 2. 负载均衡：定义Pod访问策略
-
-Service也是通过label和selector与Pod建立关系。
 
 
 
@@ -953,6 +1079,379 @@ Service也是通过label和selector与Pod建立关系。
 3. `LoadBalancer`：对外使用，也可用于<u>共有云</u>
 
 
+
+>  TODO：
+>
+> 1. Endpoints
+> 2. Headless Service
+> 3. VIP
+> 4. vs. DNS
+> 5. ...
+
+
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  selector:
+    app: MyApp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9376
+```
+
+
+
+## 核心概念 - 卷
+
+- 使用卷时, 在 `.spec.volumes` 字段中设置为 Pod 提供的卷，并在 `.spec.containers[*].volumeMounts` 字段中声明卷在容器中的挂载位置。 容器中的进程看到的是由它们的 Docker 镜像和卷组成的文件系统视图。 
+
+- 卷不能挂载到其他卷之上，也不能与其他卷有硬链接。 Pod 配置中的每个容器必须独立指定各个卷的挂载位置。
+
+
+
+### emptyDir
+
+当 Pod 因为某些原因被从节点上删除时，`emptyDir` 卷中的数据也会被永久删除。
+
+容器崩溃并**不**会导致 Pod 被从节点上移除，因此容器崩溃期间 `emptyDir` 卷中的数据是安全的。
+
+`emptyDir` 的一些用途：
+
+- **缓存空间**，例如基于磁盘的归并排序。
+- 为耗时较长的计算任务提供检查点，以任务能方地从崩溃前状态恢复执。
+- 在 Web 服务器容器服务数据时，保存内容管理器容器获取的文件。
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pd
+spec:
+  containers:
+  - image: k8s.gcr.io/test-webserver
+    name: test-container
+    volumeMounts:
+    - mountPath: /cache
+      name: cache-volume
+  volumes:
+  - name: cache-volume
+    emptyDir: {}
+```
+
+你甚至可以设定内存上的存储。为你挂载 tmpfs（基于 RAM 的文件系统）。 虽然 tmpfs 速度非常快，但是要注意它与磁盘不同。 tmpfs 在节点重启时会被清除，并且你所写入的所有文件都会计入容器的内存消耗，受容器内存限制约束。
+
+```yaml
+volumes:
+  - name: mem-volume
+  	emptyDir:
+  	  medium: Memory
+```
+
+
+
+### gitRepo
+
+注意：它已经被弃用。
+
+- 如果需要在容器中提供 git 仓库，请将一个 [EmptyDir](https://kubernetes.io/zh/docs/concepts/storage/volumes/#emptydir) 卷挂载到 InitContainer 中，使用 git 命令完成仓库的克隆操作， 然后将 [EmptyDir](https://kubernetes.io/zh/docs/concepts/storage/volumes/#emptydir) 卷挂载到 Pod 的容器中。
+- 如果需要不断更新git仓库，你需要sidecar容器来完成它。sidecar容器中使用git sync镜像来对emptyDir进行同步。
+- 已被启用的gitRepo是不能配置私有仓库的。
+
+
+
+### hostPath
+
+它是一种持久性存储。`hostPath` 卷能将主机节点文件系统上的文件或目录挂载到你的 Pod 中。
+
+例如，`hostPath` 的一些用法有：
+
+- 运行一个需要访问 Docker 内部机制的容器；可使用 `hostPath` 挂载 `/var/lib/docker` 路径。
+- 在容器中运行 cAdvisor 时，以 `hostPath` 方式挂载 `/sys`。
+
+
+
+#### 注意
+
+- 具有相同配置（例如基于同一 PodTemplate 创建）的多个 Pod 会由于节点上文件的不同 而在不同节点上有不同的行为。
+- 下层主机上创建的文件或目录只能由 root 用户写入。你需要在 [特权容器](https://kubernetes.io/zh/docs/tasks/configure-pod-container/security-context/) 中以 root 身份运行进程，或者修改主机上的文件权限以便容器能够写入 `hostPath` 卷。
+
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pd
+spec:
+  containers:
+  - image: k8s.gcr.io/test-webserver
+    name: test-container
+    volumeMounts:
+    - mountPath: /test-pd
+      name: test-volume
+  volumes:
+  - name: test-volume
+    hostPath:
+      # 宿主上目录位置
+      path: /data
+      # 此字段为可选
+      type: Directory
+```
+
+
+
+### nfs
+
+```bash
+# on NFS server
+yum install -y nfs-utils
+mkdir -p /data/nfs
+cat >> /etc/exports << EOF
+/data/nfs *(rw,no_root_squash)
+EOF
+systectl enable --now nfs 
+
+# on K8S master server
+yum install -y nfs-utils
+```
+
+```yaml
+volumes:
+- name: nfs-volume
+  nfs:
+    server: 1.2.3.4
+    path: /path/exposed/from/server
+```
+
+
+
+### PersistantVolume
+
+为了能够请求存储资源，同时屏蔽处理基础设施的细节。
+
+
+
+#### 介绍
+
+- `PersistentVolume` 是集群中管理员分配的一块存储。
+  - 它属于集群中的资源，如同节点是集群中的资源一样，**它不属于任何 Namespace**。
+  - PV 是存储卷插件，它拥有生命周期，但是独立于那些使用 PV 的 Pod 生命周期。支持 NFS、iSCSI 或者云供应商存储系统。
+
+- `PersistentVolumeClaim` 用于用户请求存储资源。
+  - 它类似 Pod，Pod 消耗节点资源，而 PVC 消耗 PV 资源。
+  - Pods 可以请求特定级别的资源（CPU 和 内存），PVC 可以请求特定的存储大小和访问模式（如可以一次读写挂载或只读模式）。
+
+
+
+![img](https://gblobscdn.gitbook.com/assets%2F-LoAvJI9gBldK6-l44i7%2F-LoAvd-24y_bdbAVPeKH%2F-LoAvmmR9yCJqafe-HQh%2Fpv-pvc.png?alt=media)
+
+
+
+#### 供应模式
+
+**静态供应**
+
+集群管理员创建若干 PV 卷。这些卷对象带有真实存储的细节信息，并且对集群 用户可用（可见）。PV 卷对象存在于 Kubernetes API 中，可供用户消费（使用）。
+
+
+
+**动态供应**
+
+如果管理员所创建的所有静态 PV 卷都无法与用户的 PersistentVolumeClaim 匹配， 集群可以尝试为该 PVC 申领动态供应一个存储卷。 这一供应操作是基于 StorageClass 来实现的：PVC 申领必须请求某个 [存储类](https://kubernetes.io/zh/docs/concepts/storage/storage-classes/)，同时集群管理员必须 已经创建并配置了该类，这样动态供应卷的动作才会发生。 如果 PVC 申领指定存储类为 `""`，则相当于为自身禁止使用动态供应的卷。
+
+
+
+#### 生命周期
+
+**阶段**
+
+每个PV会处于以下阶段之一：
+
+- Available（可用）-- 卷是一个空闲资源，尚未绑定到任何申领；
+- Bound（已绑定）-- 该卷已经绑定到某申领；
+- Released（已释放）-- 所绑定的申领已被删除，但是资源尚未被集群回收；
+- Failed（失败）-- 卷的自动回收操作失败。
+
+**PV / PVC 绑定**
+
+- PVC 申领与 PV 卷之间的绑定是一种一对一的映射，实现上使用 ClaimRef 来记述 PV 卷 与 PVC 申领间的双向绑定关系。
+- 如果找不到匹配的 PV 卷，PVC 申领会无限期地处于未绑定状态。
+- 静态时PVC与PV绑定时会根据`storageClassName`和`accessModes`断哪些PV符合绑定需求。然后再根据存储量大小判断，首先存PV储量必须大于或等于PVC声明量；其次就是PV存储量越接近PVC声明量，那么优先级就越高。
+
+**PV / PVC 保护状态下的删除**
+
+- `Storage Object in Use Protection` 确保仍被 Pod 使用的 PVC 及其所绑定的 PV 在系统中不会被删除。
+- 如果用户删除被某 Pod 使用的 PVC 对象，该 PVC 申领不会被立即移除。 **PVC 的移除会被推迟**，直至其不再被任何 Pod 使用。
+- 此外，如果管理员删除已绑定到某 PVC 申领的 PV 卷，该 PV 卷也不会被立即移除。 **PV 的移除也要推迟到**该 PV 不再绑定到 PVC。
+- 你可以看到当 PVC / PV 的状态为 `Terminating` 且其 `Finalizers` 列表中包含 `kubernetes.io/pvc-protection` 时，PVC 对象是处于被保护状态的。
+
+**PV 回收策略**
+
+PersistentVolume 对象的回收策略告诉集群，当其被 从申领中释放时如何处理该数据卷。
+
+- `Retain`
+  - 当 PVC 被删除时，PV 仍然存在，并被视为 released。
+  - 由于卷上仍然存在这前一申领人的数据，该卷还不能用于其他申领。
+- `Delete`
+  - 会将 PV 从 Kubernetes 中移除，同时也会从外部基础设施中移除所关联的存储资产。
+  - 动态供应的卷会继承[其 StorageClass 中设置的回收策略](https://kubernetes.io/zh/docs/concepts/storage/persistent-volumes/#reclaim-policy)，该策略默认 为 `Delete`。
+- `Recycle`：弃用，替换为动态供应。
+  - 执行一些基本的 擦除（`rm -rf /thevolume/*`）操作，之后允许该卷用于新的 PVC 申领。
+
+
+
+#### 配置
+
+**PV**
+
+- `capacity`
+- `volumeMode`
+  -  `Filesystem` 的卷会被 Pod *挂载* 到某个目录。
+  -  `Block`将卷作为原始块设备来使用，其上没有任何文件系统。
+- `accessModes`
+  - 每个卷只能同一时刻只能以一种访问模式挂载，即使该卷能够支持 多种访问模式。
+  - RWO - ReadWriteOnce
+  - ROX - ReadOnlyMany
+  - RWX - ReadWriteMany
+- `storageClassName`
+  - 特定类的 PV 卷只能绑定到请求该类存储卷的 PVC 申领。 未设置 `storageClassName` 的 PV 卷没有类设定，只能绑定到那些没有指定特定 存储类的 PVC 申领。
+- `PVReclaimPolicy`：三种选项，如上文
+- `mountOptions`：并非所有持久卷类型都支持挂载选项
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv
+spec:
+  capacity:
+    storage: 5Gi
+  # 可选参数，为Filesystem或Block。
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  # PV 也可设定 storageClassName
+  storageClassName: slow
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - hard
+    - nfsvers=4.1
+  nfs:
+    path: /tmp
+    server: 172.17.0.2
+```
+
+
+
+**PVC**
+
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 4Gi
+  # 显式设置空字符串，否则会被设置为默认的 StorageClass
+  storageClassName: ""
+  selector:
+    matchLabels:
+      release: "stable"
+    matchExpressions:
+      - {key: environment, operator: In, values: [dev]}
+```
+
+
+
+**Pod**
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  containers:
+    - name: myfrontend
+      image: nginx
+      volumeMounts:
+      - mountPath: "/var/www/html"
+        name: mypd
+  volumes:
+    - name: mypd
+      persistentVolumeClaim:
+        claimName: myclaim
+```
+
+
+
+### StorageClass
+
+每个 StorageClass 都包含 `provisioner`、`parameters` 和 `reclaimPolicy` 字段。
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Retain
+```
+
+
+
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 4Gi
+  # 设置 storageClassName
+  storageClassName: standard
+  selector:
+    matchLabels:
+      release: "stable"
+    matchExpressions:
+      - {key: environment, operator: In, values: [dev]}
+```
+
+
+
+#### Provisioner
+
+这些独立的程序遵循由 Kubernetes 定义的 [规范](https://git.k8s.io/community/contributors/design-proposals/storage/volume-provisioning.md)。 外部供应商的作者完全可以自由决定他们的代码保存于何处、打包方式、运行方式、使用的插件（包括 Flex）等。
+
+
+
+#### 回收策略
+
+可以是 `Delete` （默认）或者 `Retain`。
+
+
+
+
+
+## 核心概念 - 配置
 
 
 
