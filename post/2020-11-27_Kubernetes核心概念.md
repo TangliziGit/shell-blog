@@ -5,119 +5,13 @@
         * [Kubernetes的好处](#kubernetes的好处)
         * [Kubernetes 不是什么](#kubernetes-不是什么)
     * [架构](#架构)
-        * [节点](#节点)
-        * [通信](#通信)
-            * [从节点到Master](#从节点到master)
-            * [从Master到节点](#从master到节点)
-            * [API](#api)
-        * [控制器](#控制器)
-            * [如何控制资源](#如何控制资源)
-            * [设计实践](#设计实践)
-            * [云控制器管理器](#云控制器管理器)
-        * [如何运行应用](#如何运行应用)
     * [核心概念 - Pod](#核心概念---pod)
-        * [对象](#对象)
-            * [描述文件](#描述文件)
-            * [对象管理](#对象管理)
-            * [名称和UID](#名称和uid)
-            * [名字空间](#名字空间)
-            * [标签和选择算符](#标签和选择算符)
-            * [注解](#注解)
-            * [字段选择器](#字段选择器)
-        * [容器](#容器)
-            * [Runtime Class](#runtime-class)
-            * [容器生命周期回调](#容器生命周期回调)
-        * [Pod](#pod)
-            * [基本概念](#基本概念)
-            * [使用](#使用)
-            * [共享网络与存储](#共享网络与存储)
-            * [Pod模板](#pod模板)
-        * [生命周期](#生命周期)
-            * [Pod 生命周期](#pod-生命周期)
-            * [容器生命周期](#容器生命周期)
-            * [容器重启策略](#容器重启策略)
-        * [创建流程](#创建流程)
-        * [影响调度的因素](#影响调度的因素)
-            * [资源配额](#资源配额)
-            * [节点亲和性](#节点亲和性)
-            * [拓扑分布约束](#拓扑分布约束)
-            * [污点与污点容忍](#污点与污点容忍)
-        * [Init 容器](#init-容器)
-        * [健康检查策略](#健康检查策略)
     * [核心概念 - 工作负载](#核心概念---工作负载)
-        * [ReplicaSet](#replicaset)
-            * [工作原理](#工作原理)
-            * [何时使用](#何时使用)
-            * [vs. RC](#vs.-rc)
-            * [注意](#注意)
-        * [Deployment](#deployment)
-            * [工作原理](#工作原理)
-            * [清理策略](#清理策略)
-            * [金丝雀部署](#金丝雀部署)
-            * [注意](#注意)
-        * [StatefulSet](#statefulset)
-            * [意义](#意义)
-            * [工作原理](#工作原理)
-            * [注意](#注意)
-        * [DaemonSet](#daemonset)
-            * [场景](#场景)
-        * [Job](#job)
-            * [使用场景](#使用场景)
-            * [失效场景](#失效场景)
-            * [终止与清理](#终止与清理)
-            * [注意](#注意)
-        * [CronJob](#cronjob)
-            * [时间安排](#时间安排)
-            * [注意](#注意)
-        * [垃圾收集](#垃圾收集)
-            * [所有者和附属](#所有者和附属)
-            * [级联删除](#级联删除)
-            * [注意](#注意)
-        * [TTL 控制器](#ttl-控制器)
     * [核心概念 - 服务与网络](#核心概念---服务与网络)
-        * [Service](#service)
-            * [目的](#目的)
-            * [常用的三种类型](#常用的三种类型)
     * [核心概念 - 卷](#核心概念---卷)
-        * [emptyDir](#emptydir)
-        * [gitRepo](#gitrepo)
-        * [hostPath](#hostpath)
-            * [注意](#注意)
-        * [nfs](#nfs)
-        * [PersistantVolume](#persistantvolume)
-            * [介绍](#介绍)
-            * [供应模式](#供应模式)
-            * [生命周期](#生命周期)
-            * [配置](#配置)
-        * [StorageClass](#storageclass)
-            * [Provisioner](#provisioner)
-            * [回收策略](#回收策略)
     * [核心概念 - 配置](#核心概念---配置)
-        * [配置管理](#配置管理)
-            * [Secret](#secret)
-            * [ConfigMap](#configmap)
-        * [集群安全机制](#集群安全机制)
-            * [概述](#概述)
-            * [RBAC鉴权](#rbac鉴权)
     * [其他](#其他)
-        * [Ingress](#ingress)
-            * [概念](#概念)
-            * [部署](#部署)
-        * [Helm](#helm)
-            * [概念](#概念)
-            * [演示](#演示)
-        * [持久存储](#持久存储)
-        * [集群资源监控](#集群资源监控)
-            * [监控指标](#监控指标)
-            * [监控平台方案](#监控平台方案)
-        * [高可用](#高可用)
-            * [简介](#简介)
-            * [大致结构](#大致结构)
-            * [流程](#流程)
     * [实践](#实践)
-        * [常用命令](#常用命令)
-        * [简单实践](#简单实践)
-        * [开发应用最佳实践](#开发应用最佳实践)
 
 <!-- vim-markdown-toc -->
 
@@ -566,7 +460,7 @@ spec:
 3. 重启策略`restartPolicy`：三种，类似Docker
 4. 健康检查策略：
    - 存活探针`livenessProbe`：若检查失败则杀死
-   - 就绪探针`readinessProbe`：若检查失败则把Pod剔除出service
+   - 就绪探针`readinessProbe`：若检查失败则把Pod剔除出service，**务必添加**
    - 检查方式：`httpGet`状态码范围，`exec`返回状态码为0，`tcpSocket`建立成功
 
 
@@ -1170,7 +1064,9 @@ Kubernetes 网络解决四方面的问题：
 
 ### Service
 
-为一组功能相同的Pod 提供统一访问接口。Kubernetes 为 Pods 提供自己的 IP 地址，并为一组 Pod 提供相同的 DNS 名， 并且可以在它们之间进行负载均衡。
+为一组功能相同的Pod 提供统一访问接口。
+
+Kubernetes 为 Pods 提供**一个集群 IP**，并为一组 Pod 提供相同的 DNS 名， 并且可以在它们之间进行负载均衡。
 
 
 
@@ -1183,25 +1079,9 @@ Pod 是动态添加和删除的，其访问地址需要维护不变。
 
 
 
-#### 常用的三种类型
+#### 定义 - 位于集群内部
 
-> https://mp.weixin.qq.com/s/dHaiX3H421jBhnzgCCsktg
-
-1. `ClusterIP`：集群内部使用
-2. `NodePort`：对外访问使用
-3. `LoadBalancer`：对外使用，也可用于<u>共有云</u>
-
-
-
->  TODO：
->
-> 1. Endpoints
-> 2. Headless Service
-> 3. VIP
-> 4. vs. DNS
-> 5. ...
-
-
+服务配置提供：`selector`查找Pod而非其他资源，`ports`。
 
 ```yaml
 apiVersion: v1
@@ -1214,8 +1094,281 @@ spec:
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 9376
+      targetPort: 9376 # 也可以是一个名字
 ```
+
+- 将请求代理到使用 TCP 端口 9376，并且具有标签 `"app=MyApp"` 的 Pod 上。 
+- 为该服务**分配 IP 地址**（有时称为 "集群IP"），该 IP 地址由服务代理使用。
+- 服务**选择算符不断扫描**与其选择器匹配的 Pod，然后将所有更新发布到也称为 “my-service” 的 **Endpoint 对象**。
+
+
+
+#### 定义 - 位于集群外部 Endpoint
+
+**没有选择算子的情况**
+
+由于此服务没有选择算符，因此 *不会自动创建* 相应的 Endpoint 对象。
+
+Endpoint配置提供：`subsets.adresses` & `subsets.ports`
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9376
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: my-service
+subsets:
+  - addresses:
+  	- ip: 10.244.1.5
+  	- ip: 10.244.1.6
+  	ports:
+  	- port: 80
+      protocol: TCP
+
+```
+
+场景：
+
+- 使用外部的数据库集群。
+- 指向另一个 命名空间 中或其它集群中的服务。
+- 仅在 Kubernetes 中运行一部分后端。
+
+
+
+#### 定义 - 位于集群外部 ExternalName
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  type: ExternalName
+  externalName: abc.xyz
+  ports:
+  	- port: 80
+```
+
+- 当查找主机 `my-service.prod.svc.cluster.local` 时，集群 DNS 服务返回 `CNAME` 记录， 其值为`abc.xyz`。
+- 访问 `my-service` 的方式与其他服务的方式相同，但主要区别在于重定向发生在 DNS 级别，而**不是通过代理或转发**。
+
+
+
+#### 服务发现
+
+客户端如何知道需要调用的服务的地址？
+
+**通过环境变量**
+
+如果服务早于Pod被创建，则Pod容器可以通过环境变量进行访问。
+
+```shell
+$ env
+WEB_NGINX_SERVICE_HOST=10.101.39.175
+WEB_NGINX_SERVICE_PORT=80
+WEB_NGINX_PORT=tcp://10.101.39.175:80
+...
+```
+
+**通过DNS & 完全限定域名FQDN**
+
+kube-system中存在`kube-dns`的Pod，它用来充当集群的DNS。
+
+每个Pod的容器中`/etc/resolv.conf`都包含了如下配置：
+
+```
+# 设置kube-dns为DNS
+nameserver 10.96.0.10
+# 指明查询顺序。当要查询没有域名的主机，主机将在由search声明的域中分别查找。
+search default.svc.cluster.local svc.cluster.local cluster.local
+options ndots:5
+```
+
+我们可以通过`SERVICE.NS.svc.cluster.local`访问服务，也可通过查询顺序配置来简化访问，如：`SERVICE`，`SERVICE.NS`等。
+
+**注意**：服务不能通过`ping`命令访问，应为serivce的实现是通过VIP，并且与端口结合才能有意义。
+
+
+
+#### 服务暴露 - NodePort
+
+> https://mp.weixin.qq.com/s/dHaiX3H421jBhnzgCCsktg
+
+在所有节点上开放端口，转发至service。
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 8080
+      nodePort: 30123
+  selector:
+    app: web
+```
+
+![Image](https://mmbiz.qpic.cn/mmbiz_png/FE4VibF0SjfPRHpZDxMSOWXYXJMTEgSroEWp84B8w67IW1Tt6eCPSp2iaqsmmpmUKNy9qR83Gnrgiao9nzGS2tQVg/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+这种方式有一些不足：
+
+1. 一个端口只能供一个服务使用；
+2. 只能使用30000–32767的端口；
+3. 如果节点 / 虚拟机的IP地址发生变化，需要进行处理。
+4. 节点获得的请求中，源IP会进行SNAT
+
+因此，我不推荐在生产环境使用这种方式来直接发布服务。如果不要求运行的服务实时可用，或者在意成本，这种方式适合你。例如用于演示的应用或是临时运行就正好用这种方法。
+
+
+
+#### 服务暴露 - LoadBalancer
+
+分配一个**独有的IP地址**，将所有流量转发到某个服务中。
+
+注意：
+
+1. 下图有误，Load Balancer 会**首先连接到某个节点**，然后才访问Service，随机选择Pod。
+2. `externalTrafficPolicy: local`：当这个设置启用后，Service会选择本Pod进行下一步的工作。这会减少一次网络跳数，同时不使用SNAT，但是这并不能保证流量是否平均在Pod上。（如：某一个节点上包含了大多数的Pod）
+3. 节点获得的请求中，源IP会进行SNAT
+
+![Image](https://mmbiz.qpic.cn/mmbiz_png/FE4VibF0SjfPRHpZDxMSOWXYXJMTEgSroXH2jiaNA55b36pwxk4USEaparfyI0ttj00B4slGqcM7tRNcCmdrlkJw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+
+
+#### 服务暴露 - Ingress
+
+- Ingress只需要一个公网IP即可提供许多服务。
+- 它会根据主机名和请求路径决定该访问哪个服务
+- 在HTTP层上工作，提供k8s其他组件没有的功能，如cookie会话亲和性
+
+详见下文Ingress。
+
+
+
+#### 其他
+
+- 会话亲和性`sessionAffinity`：`None`或`ClientIP`
+
+  - 保证同一个`ClientIP`的请求，会被发送到同一个Pod中
+
+- 多端口服务：每个端口需要指定名字
+
+- 命名端口：更换端口不需要修改service配置
+
+```yaml
+# pod
+containers:
+  - name: xxx
+  	ports:
+  	  - name: http
+  	  	containerPort: 8080
+---
+# service
+ports:
+  - name: http
+  	port: 80
+   	targetPort: http
+  - name: https
+   	port: 443
+   	targetPort: 8443
+```
+
+  
+
+### Ingress
+
+- Ingress只需要一个公网IP即可提供许多服务。
+- 它会根据主机名和请求路径决定该访问哪个服务
+- 在HTTP层上工作，提供k8s其他组件没有的功能，如cookie会话亲和性
+- Ingress 控制器是比不可少的，可用官方的 Ingress-nginx
+
+![Image](https://mmbiz.qpic.cn/mmbiz_png/FE4VibF0SjfPRHpZDxMSOWXYXJMTEgSroZMy5yOhB1gVFun7M5jclp4ticUubOqhD1KoXKqqaLuxW5BBI5Zd41JQ/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-wildcard-host
+spec:
+  rules:
+  - host: "foo.bar.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/bar"
+        backend:
+          service:
+            name: service1
+            port:
+              number: 80
+  - host: "*.foo.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/foo"
+        backend:
+          service:
+            name: service2
+            port:
+              number: 80
+```
+
+
+
+### Headless Service
+
+当不需要或不想要负载均衡，以及单独的 Service IP时。
+
+可以通过指定`spec.clusterIP`的值为 `None` 来创建 Headless Service。
+
+Headless Service配置后，当DNS查找服务时，会返回多个Pod的A记录。指向支持次服务的Pod。
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-service
+spec:
+  ClusterIP: None
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: web
+```
+
+```shell
+$ k exec dnsutils -- nslookup headless-service
+Server:		10.96.0.10
+Address:	10.96.0.10#53
+
+Name:	headless-service.default.svc.cluster.local
+Address: 10.244.1.7
+Name:	headless-service.default.svc.cluster.local
+Address: 10.244.1.5
+Name:	headless-service.default.svc.cluster.local
+Address: 10.244.1.8
+Name:	headless-service.default.svc.cluster.local
+Address: 10.244.1.6
+```
+
+
+
+### 服务故障排查
+
+> 见《Kubernetes in Action》, Page 158
 
 
 
@@ -1643,29 +1796,6 @@ kubectl config ...
 
 
 
-### Ingress
-
-NodePort的缺点
-
-- 每个节点都开启端口，都可以访问
-- 实际访问应使用域名，跳转到不同的端口服务中
-
-
-
-#### 概念
-
-Ingress 作为同一的service的访问入口，service再进行pod的服务发现。
-
-
-
-#### 部署
-
-1. 创建引用，通过NortPort Service暴露（ClusterIP 应该也可以）
-2. 编写yaml配置，应用，之后可编写`Kind: Ingress`的Pod配置
-3. 创建Ingress规则，什么域名访问什么service的什么内部端口
-
-
-
 ### Helm
 
 1. Helm可以降一组yaml作为一个整体，实现高校复用
@@ -1713,41 +1843,6 @@ helm upgrade APP_NAME CHART_NAME/
 
 # reuse
 ```
-
-
-
-### 持久存储
-
-数据卷emptydir是本地存储，pod重启则消失
-
-- NFS（Docker 也有 NFS 文件存储）
-
-  ```bash
-  # on NFS server
-  yum install -y nfs-utils
-  mkdir -p /data/nfs
-  cat >> /etc/exports << EOF
-  /data/nfs *(rw,no_root_squash)
-  EOF
-  systectl enable --now nfs 
-  
-  # on K8S master server
-  yum install -y nfs-utils
-  cat >> pod.yaml << EOF
-  ...
-  
-  spec.containers.volumeMounts.name: NAME 
-  spec.containers.volumeMounts.mountPath: 目标
-  spec.volumes.name: NAME
-  spec.volumes.nfs.server: IP(明文)
-  spec.volumes.nfs.path: /data/nfs(明文)
-  ...
-  EOF
-  ```
-
-- PersistentVolume & PersistentVolumeClaim
-
-  - PV 作为存储，PVC 作为中间层提供配额等服务；
 
 
 
