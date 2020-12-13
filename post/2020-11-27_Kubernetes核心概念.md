@@ -407,6 +407,7 @@ Pod 天生地为其成员容器提供了两种共享资源：
   - 他们也能通过如 **SystemV 信号量或 POSIX 共享内存**这类标准的进程间通信方式互相通信。
   - 注意：具体容器都共享了pause容器的网络，而pause容器IpcMode为sharable，且网络类型为none
   - 详见：<https://kubernetes.io/zh/docs/concepts/cluster-administration/networking/>
+  - 关于Fannel网络实现，详见：<https://zhuanlan.zhihu.com/p/140711132>
 - 存储：即共享数据卷，详见<https://kubernetes.io/zh/docs/concepts/storage/>
 
 
@@ -520,14 +521,9 @@ Pod 的 `spec` 中包含一个 `restartPolicy` 字段，其可能取值包括 Al
 
 ### 创建流程
 
-> TODO
+> https://www.cnblogs.com/pu20065226/p/10650030.html
 
-1. master 节点
-   1. apiserver 受到 create Pod 请求，创建 Pod，并写入 etcd
-   2. Scheduler 获得新的Pod，进行调度；同时 apiserver 受到调度成功响应，写入etcd
-2. worker 节点
-   1. kubelet 获得Pod，同时启动容器；向 apiserver 返回状态响应，写入 etcd
-
+> <https://cloud.tencent.com/developer/article/1553943>
 
 
 ### 影响调度的因素
@@ -549,25 +545,46 @@ Pod 的 `spec` 中包含一个 `restartPolicy` 字段，其可能取值包括 Al
 
 #### 资源配额
 
-> TODO
+对每个命名空间的资源消耗总量提供限制。 它可以限制命名空间中某种类型的对象的总数目上限，也可以限制命令空间中的 Pod 可以使用的计算资源的总上限。
+
+分配计算资源时，每个容器可以为 CPU 或内存指定请求和约束。
 
 
 
 #### 节点亲和性
 
-> TODO
+1. 规则是偏好的，而**不是硬性**要求，如果调度器无法满足该要求，仍然调度该 pod
+2. 你可以使用节点上的 pod 的标签来约束，而不是使用节点本身的标签，来**允许哪些 pod 可以或不可以被放置在一起**。
 
 
 
 #### 拓扑分布约束
 
-> TODO
+依赖于节点标签作为拓扑域，达到拓扑域上的均衡。
 
 
 
 #### 污点与污点容忍
 
-> TODO
+污点和容忍度相互配合，可以用来**避免 Pod 被分配到不合适的节点**上。 每个节点上都可以应用一个或多个污点，这表示对于那些不能容忍这些污点的 Pod，是不会被该节点接受的。
+
+**场景**
+
+- **专用节点**：如果您想将某些节点专门分配给特定的一组用户使用，您可以给这些节点添加一个污点， 然后给这组用户的 Pod 添加一个相对应的 toleration
+
+- **配备了特殊硬件的节点**：在部分节点配备了特殊硬件（比如 GPU）的集群中， 我们希望不需要这类硬件的 Pod 不要被分配到这些特殊节点，以便为后继需要这类硬件的 Pod 保留资源。 
+
+- **基于污点的驱逐**: 在节点出现问题时，Pod 被驱逐的策略
+
+```yaml
+spec:
+  tolerations:
+  - key: "example-key"
+    operator: "Exists"
+    effect: "NoSchedule"
+```
+
+
 
 
 
@@ -604,13 +621,95 @@ Init 容器支持应用容器的全部字段和特性，包括资源限制、数
 
 
 
-### 健康检查策略
+### 健康检查机制
 
-> TODO
+> <https://www.jianshu.com/p/5def7f934d2e>
 
-- 存活探针`livenessProbe`：若检查失败则杀死
-- 就绪探针`readinessProbe`：若检查失败则把Pod剔除出service
-- 检查方式：`httpGet`状态码范围，`exec`返回状态码为0，`tcpSocket`建立成功
+
+
+#### 重启策略
+
+每个容器启动时都会执行一个主进程，如果进程退出返回码不是0，则认为容器异常，即pod异常，k8s 会根据restartPolicy策略选择是否杀掉 pod，再重新启动一个。
+
+restartPolicy分为三种：
+
+- Always：当容器终止退出后，总是重启容器，默认策略。
+- OnFailure：当容器异常退出（退出码非0）时，才重启容器。
+- Never：当容器终止退出时，才不重启容器。
+
+```yaml
+spec:
+  restartPolicy: OnFailure
+```
+
+
+
+#### 探针执行方式与参数
+
+**执行方式**
+
+- **HTTP**：200或300范围响应，则健康
+
+  ```yaml
+  httpGet:
+    path: /api
+    port: 80
+    httpHeaders:
+    - name: Custom-Header
+      value: header-value
+  ```
+
+- **TcpSocket**：若可以建立连接，则健康
+
+  ```yaml
+  tcpSocket: 
+    port: 80
+  ```
+
+- **exec**：返回值为0，则健康
+
+  ```yaml
+  exec:
+    command: [ "cat", "/etc/nginx.conf" ]
+  ```
+
+**参数**
+
+- `initialDelaySeconds`：指定容器启动之后何时开始探测，根据应用启动的准备时间来设置
+- `periodSeconds`：探测周期，默认5s
+- `timeoutSeconds`：超时时间
+- `failureThreshold`：最大尝试次数，默认3
+- `successThreshold`：最小连续成功次数
+
+```yaml
+spec:
+  containers:
+  - name: web
+    image: nginx
+    livenessProbe:
+      exec:
+        command: [ "cat", "/etc/nginx.conf" ]
+      initialDelaySeconds: 30
+      periodSeconds: 5
+```
+
+
+
+
+
+#### 存活探针
+
+很多情况下服务出现问题，进程却没有退出，如系统超载 5xx 错误，资源死锁等。
+
+存活探针是指，若检查失败**则杀死Pod，重新启动一个并替换**。
+
+
+
+#### 就绪探针
+
+就绪探针旨在让Kubernetes知道你的应用**是否准备好为请求提供服务**。
+
+如果就绪探针检测失败，**服务将停止向该容器发送流量，直到它通过检测**。
 
 
 
@@ -1721,22 +1820,238 @@ spec:
 
 
 
-### 配置管理
+### 描述文件中的配置
 
-#### Secret
+Docker 使用 CMD 来设置命令行参数，使用 ENTRYPOINT 来指定程序入口。
 
-将编码的数据存在etcd中，Pod容器以Volume方式或环境变量进行访问。
+```dockerfile
+# shell 形式，通过Shell启动程序，不推荐使用
+# ENTRYPOINT node app.js
+# exec 模式，直接启动程序
+ENTRYPOINT [ "node", "app.js" ]
+CMD [ "--port", "8080" ]
+```
 
-1. 创建：创建secret加密数据，使用`create -f secret.yaml`
-2. 使用：
-   - 在其他pod配置中使用此数据使用`env`，作为环境变量
-   - 在其他pod配置中使用此数据使用`volume.secret`，作为卷中的文件
+
+
+#### 命令行参数
+
+```yaml
+spec:
+  containers:
+  - image: alpine
+  	command: [ "/bin/echo" ]
+  	args: [ "hello", "2020" ]
+```
 
 
 
-#### ConfigMap
+#### 环境变量
 
-存储不编码的数据于etcd，Pod容器以Volume方式或环境变量进行访问。
+注意：yaml中数字需要添加引号
+
+```yaml
+spec:
+  containers:
+  - image: alpine
+    env:
+    - name: WORDS
+      value: hello
+    - name: YEARS
+      value: "2020"
+    command: [ "/bin/echo" ]
+  	args: [ "${WORDS} ${YEARS}" ]
+```
+
+
+
+
+
+### ConfigMap
+
+ConfigMap 是一种 API 对象，用来将非机密性的数据保存到健值对中。
+
+Pods 可以将其用作**环境变量**、**命令行参数**或者**存储卷中的配置文件**。
+
+为了在生产和测试等环境中，能够有效复用 Pod 描述文件，需要将配置文件进行解耦。
+
+可进行**热更新**。
+
+
+
+#### 创建 ConfigMap
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo
+data:
+  words: "hello"
+  years: "2020"
+  my-nginx.conf: |
+    enemy.types=aliens,monsters
+    player.maximum-lives=5
+  user-interface.properties: |
+    ...
+```
+
+或者通过CLI：
+
+```bash
+kubectl create configmap demo --from-literal=WORDS=hello
+kubectl create configmap demo --from-file=nginx.conf
+kubectl create configmap demo --from-file=nginx=nginx.conf
+kubectl create configmap demo --from-file=/etc/nginx.d/
+
+kubectl edit configmap demo
+```
+
+
+
+#### 使用 ConfigMap - 环境变量
+
+**引用键值**
+
+```yaml
+kind: Pod
+spec:
+  containers:
+  - image: alpine
+    env:
+    - name: WORDS
+      valueFrom: 
+        configMapKeyRef: 
+          name: demo
+          key: words
+```
+
+**一次性传递**
+
+```yaml
+kind: Pod
+spec:
+  containers:
+  - image: alpine
+    envFrom:
+    - prefix: CONFIG_
+      configMapRef:
+        name: demo
+```
+
+
+
+#### 使用 ConfigMap - 文件挂载
+
+**挂载所有配置文件**
+
+```yaml
+spec:
+  containers:
+    - name: demo
+      image: alpine
+      command: ["sleep", "3600"]
+      volumeMounts:
+      - name: config
+        # 挂载位置
+        mountPath: "/etc/nginx/conf.d"
+        readOnly: true
+  volumes:
+    - name: config
+      configMap:
+        name: demo
+        # 可选，选定包含什么项目，进行挂载
+        items:
+        - key: "my-nginx.conf"
+          # 名字映射
+          path: "gzip.conf"
+```
+
+
+
+**挂载单独文件**
+
+```yaml
+spec:
+  containers:
+    - name: demo
+      image: alpine
+      command: ["sleep", "3600"]
+      volumeMounts:
+      - name: config
+        # 挂载位置
+        mountPath: "/etc/nginx.conf"
+        subPath: "gzip.conf"
+        readOnly: true
+  volumes:
+    - name: config
+      configMap:
+        name: demo
+        # 可选，选定包含什么项目，进行挂载
+        items:
+        - key: "my-nginx.conf"
+          # 名字映射
+          path: "gzip.conf"
+```
+
+
+
+#### 注意
+
+- 如果挂载了单独一个文件，那么不回进行热更新。
+- 同时ConfigMap不应该作为可变对象存在，因为容器本身设计是为不可变的
+
+
+
+### Secret
+
+`Secret` 对象类型用来保存敏感信息，例如密码、OAuth 令牌和 SSH 密钥。
+
+使用`Base64`编码能够提供二进制数据的存储，但大小限制在1MB。在Pod实际使用时不必再进行解码。
+
+
+
+#### 安全
+
+主要是 Kubernetes 对 `Secret`对象采取额外了预防措施。
+
+1. **传输安全**
+   - 在大多数 Kubernetes 项目维护的发行版中，用户与 API server 之间的通信以及从 API server 到 kubelet 的通信都受到 `SSL/TLS` 的保护。对于开启 HTTPS 的 Kubernetes 来说 `Secret` 受到保护所以是安全的。
+
+2. **存储安全**
+   - 只有当挂载 `Secret` 的POD 调度到具体节点上时，`Secret` 才会被发送并存储到该节点上。
+   - 它不会被写入磁盘，而是存储在 tmpfs 中。一旦依赖于它的 POD 被删除，`Secret` 就被删除。
+   - `etcd`使用加密存储。
+
+3. **访问安全**
+   - 同一节点上可能有多个 POD 分别拥有单个或多个`Secret`。但是 `Secret` 只对请求挂载的 POD 中的容器才是可见的。
+
+
+
+#### 配置
+
+- `type`：见文档，每个型都有不同的用法
+- `data`/`stringData`：`data`使用base64进行配置，`stringData`使用字面量存储。
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-tls
+type: Opaque
+stringData:
+  username: tanglizi
+  password: passwd
+```
+
+- Pod中用法同ConfigMap，只是在环境变量用法中，替换为`secretKeyRef`
+
+
+
+#### 注意
+
+- 在拉取私有镜像的场合，使用`type: dockerconfigjson`为Pod进行配置。或使用ServiceAccount进行拉取。
+- 在TLS场合，使用`type: tls`配置。
 
 
 
