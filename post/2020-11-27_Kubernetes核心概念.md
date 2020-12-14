@@ -799,7 +799,13 @@ kubectl taint node NAME type:TIANT-
 
 
 
-### Init 容器
+### 特殊容器
+
+![img](https://img2018.cnblogs.com/blog/1082769/202002/1082769-20200210223709746-1615498561.gif)
+
+
+
+#### Init 容器
 
 Init 容器是一种特殊容器，在 [Pod](https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/) 内的应用容器启动之前运行。
 
@@ -810,6 +816,52 @@ Init 容器支持应用容器的全部字段和特性，包括资源限制、数
 在 Pod 启动过程中，每个 Init 容器会在网络和数据卷初始化之后按顺序启动。 kubelet 运行依据 Init 容器在 Pod 规约中的出现顺序依次运行之。
 
 每个 Init 容器成功退出后才会启动下一个 Init 容器。
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox:1.28
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox:1.28
+    command: ['sh', '-c', "until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"]
+  - name: init-mydb
+    image: busybox:1.28
+    command: ['sh', '-c', "until nslookup mydb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done"]
+```
+
+
+
+#### Sidecar 容器
+
+在应用容器运行的同时，利用Sidecar容器可以做到一些相同生命周期的长时间操作，如`git sync`、数据库检查等。
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bookings-v1-b54bc7c9c-v42f6
+  labels:
+    app: demoapp
+spec:
+  containers:
+  - name: bookings
+    image: banzaicloud/allspark:0.1.1
+    ...
+  - name: istio-proxy
+    image: docker.io/istio/proxyv2:1.4.3
+    lifecycle:
+      type: Sidecar
+    ...
+```
 
 
 
