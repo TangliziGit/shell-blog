@@ -95,6 +95,11 @@ Kubernetes 在容器级别而不是在硬件级别运行。
 
 插件使用 Kubernetes 资源实现集群功能。其资源属于 `kube-system` 命名空间。
 
+- `kube-dns`
+- Ingress 控制器
+- 容器网络接口插件 CNI：Fannel
+- 容器集群监控：Heapster、Promethous、Grafana等
+
 
 
 ### 节点
@@ -198,11 +203,198 @@ Kubernetes API 使你可以查询和操纵 Kubernetes API 中对象（例如：P
 
 
 
+## 机理
+
+> 若不了解本内容细节，请首先阅读其他标题内容
+
+
+
+### 架构
+
+- 集群组件之间只能通过API服务器进行通信
+- API服务器是能与etcd通信的唯一组件，其他组建只能简介通过API请求，进行通信
+- 为了保证高可用性，Master 的所有组建都可有多个实例
+  - etcd 实例和 API server 实例可以同时运行
+  - 调度器和控制管理器同时只能有一个运行，其他实例处于待命状态
+- 关于`kube-system`中的组建在何处运行：
+  - `kube-proxy`和CNI的实现处于每个节点的容器中
+  - 剩下的`kube-dns`，`apiserver`等都在主节点
+
+
+
+#### etcd
+
+> https://www.zhihu.com/question/64778723/answer/224266038
+
+> https://blog.csdn.net/scylhy/article/details/100173494
+
+- API服务器是能与etcd通信的唯一组件。这样的好处是：
+  - 提供认证、鉴权、准入控制和资源验证，以检查对象是否合法
+  - 通过`meta.resourceVersion`提供同一的乐观锁机制协议，进行减少访问etcd的次数和一致性。防止某组件不遵守协议。
+- 资源存储与`/registry`中
+- etcd采取raft分布式共识算法，在CAP中选择CP，牺牲可用性。
+  - CAP是指在P分区容错性之上，在C一致性和A可用性上二选一。
+    - 分区容错性：网络链接断开，导致网络被分为两个或多个部分时，保证可以使用。
+    - 一致性：集群中所有数据出于逻辑上的一致。
+    - 可用性：指集群总是接受请求并正确回应
+  - 当网络链接断开，集群被分为两部分时。并且多数节点的集群受到客户端的写请求时，接受并执行写请求是提供A，不执行则是提供C。
+  - Raft接受了请求但不执行，当网络恢复后同步数据，长远的看数据是一致的，即达到了最终一致性。
+- 为什么etcd节点数应该是奇数？
+  - 当宕机或网络断开时，能够一直存在大多数节点接受请求。
+
+
+
+#### API Server
+
+- 提供认证、授权、准入控制和资源验证，以检查对象是否合法后存入etcd。
+  - 轮询认证插件，直到确认是谁发来请求。
+  - 轮询授权插件，直到确认所需权限。
+  - 经过所有准入控制插件，进行验证。
+- 提供 RESTful API。
+- 提供监听机制，供各组件监听事件作出反应。
+
+![img](https://pic4.zhimg.com/80/v2-71621b7058ee2fa2660bc209b8fb45c3_720w.jpg)
+
+
+
+#### Scheduler
+
+利用监听机制，等待新创建的Pod分配给某个节点。
+
+- 监听APIserver的Pod创建事件，更改Pod调度信息，Kubectl再监听到Pod，进行创建。
+- 默认调度算法：过滤、打分。
+- 可自定义调度器，在Pod属性中说明特定调度器。
+
+
+
+#### Controller
+
+控制器存在与 Controller Manager 中，它们确保系统当前状态向期望状态进行收敛。
+
+- 控制器进行循环（控制回路），监听资源变更，再将新的期望的状态写入status。
+- 每个控制器实现方式不同，但Kubelet最终会监听到资源状态更新，并正确操作。
+
+
+
+#### Kubectl
+
+负责Pod和容器的生命周期和各种变更的实际操作，同时也是存活探针的执行者。
+
+- **静态Pod**：不由API Server获知的Pod，仅有Kubelet进行维护。
+
+
+
+#### Kube-proxy
+
+`kube-proxy`的工作是监听Service和Endpoint（它指明了pod的具体IP和端口），并且维护IPVS（或旧版的iptabls）。
+
+
+
+### 控制器之间的协作
+
+系统整体是事件驱动的，以创建Deployment资源为例：
+
+![img](https://pic4.zhimg.com/80/v2-e8080f3f2f5c9978f4c7536c2026c1cb_720w.jpg)
+
+
+
+### Pod间的网络
+
+> 大部分引用自https://zhuanlan.zhihu.com/p/87063321
+
+> https://zhuanlan.zhihu.com/p/140711132
+
+网络有各种特定的实现，但是最终都要遵守下面两点：
+
+1. 节点之间的各个Pod间可互相通信，不存在NAT
+2. 节点上的守护程序如kubelet和daemon，能够直接与Pod通信
+
+
+
+#### Flannel
+
+每个节点会从 PodSubnet 中注册一个掩码长度为 24 的子网，然后该节点的所有 pod ip 地址都会从该子网中分配。
+
+当 flannel 启动成功后，会在宿主机上生成一个描述子网环境的文件，该文件中记录了所有 pod 的子网范围(FLANNEL_NETWORK)以及本机 pod  的子网范围(FLANNEL_SUBNET)：
+
+```shell
+$ cat /run/flannel/subnet.env 
+FLANNEL_NETWORK=10.244.0.0/16
+FLANNEL_SUBNET=10.244.1.1/24
+FLANNEL_MTU=1450
+FLANNEL_IPMASQ=true
+```
+
+每个节点会创建`flannel.1`接口，它是vxlan类型设备。
+
+- 当要发送给自己的 pod 子网时，会通过 cni0 网桥。
+  - Docker Drive为null，Kubernetes自己创建了这个网桥在`pause`中将其共享，通过它可以创建配对的网口给容器。
+  - 添加路由条目，将发送给自己的IP连接到 cni0 上，这是数据链路层上的（没有过Gateway）
+  - 通过默认网关，可以将无关的IP发送到外网。
+- 而当要发送其他宿主机的 pod 时，会通过 flannel.1 网卡。
+  - 此处会进行二次封包，避免了NAT
+  - 注意：网络掩码为32位，同时mtu为1450预留了一些进行封包。
+
+![img](https://pic3.zhimg.com/80/v2-2809665f2c7a972fb8815f9c7559db06_720w.jpg)
+
+
+
+
+
+### 服务如何实现
+
+服务提供了稳定的IP和端口，其中IP是虚拟的，而IP划分在了私有区域，所以ping命令是绝对无效的。
+
+`kube-proxy`的工作是
+
+`kube-proxy`最初是作为代理存在于`userspace`代理模式中，此后又有性能更高的`iptables`代理模式，现在采用`IPVS`代理模式。当前实现方案使用哈希表作为基础数据结构，并且在内核空间中工作，这提供了更好的性能。
+
+#### iptabls模式
+
+见书图11.17，由于iptabls配置过于复杂，这里简单说明此处使用了iptables做了类似DNAT的操作，在每个节点上进行了目标地址转换。
+
+**注意**：无法ping通某个Service的原因是，每个节点上的iptabls配置中，过滤了非Service的TCP和端口号，则icmp不可发出。
+
+
+
+### 高可用集群
+
+
+
+#### 高可用的应用
+
+- **水平扩展**：使用Deployment水平扩展，会减少全部宕机概率
+- **多副本选举**：不能水平扩展的情况下，建立多个非活跃副本，当主Pod挂掉，则选举新的Pod。
+
+
+
+#### 高可用的Master
+
+参见各种博客与文档，如<https://kubernetes.io/zh/docs/setup/production-environment/tools/kubeadm/ha-topology/>。
+
+需要注意的是：
+
+- `etcd`：它本身设计为分布式的，只需让它们互相感知
+- `apiserver`：本身是无状态的，但最好搭配负载均衡
+- `scheduler`和`controller-manager`：多副本选举机制
+
+
+
+**参考方案**：
+
+使用 **keepalived** 实现高可用解决单点故障
+
+用 **haproxy** 进行负载均衡
+
+1. 存在一个VIP
+
+2. 每个Master中额外配置：
+   - keepalived：用于配置虚拟IP、查看是否存活
+   - haproxy / nginx：用于负载均衡
+
 
 
 ## 核心概念 - Pod
-
-> 首先简单过一遍仅做扫盲，具体内容再看书一次
 
 
 
@@ -1198,7 +1390,7 @@ spec:
 
 - 将请求代理到使用 TCP 端口 9376，并且具有标签 `"app=MyApp"` 的 Pod 上。 
 - 为该服务**分配 IP 地址**（有时称为 "集群IP"），该 IP 地址由服务代理使用。
-- 服务**选择算符不断扫描**与其选择器匹配的 Pod，然后将所有更新发布到也称为 “my-service” 的 **Endpoint 对象**。
+- 服务**选择算符不断扫描**与其选择器匹配的 Pod，然后将所有更新发布到也称为 “my-service” 的 **Endpoint 对象**，从而指明Pod位置。
 
 
 
@@ -1325,7 +1517,7 @@ spec:
 
 1. 一个端口只能供一个服务使用；
 2. 只能使用30000–32767的端口；
-3. 如果节点 / 虚拟机的IP地址发生变化，需要进行处理。
+3. 如果节点 / 虚拟机的**IP地址发生变化**，需要进行处理。
 4. 节点获得的请求中，源IP会进行SNAT
 
 因此，我不推荐在生产环境使用这种方式来直接发布服务。如果不要求运行的服务实时可用，或者在意成本，这种方式适合你。例如用于演示的应用或是临时运行就正好用这种方法。
@@ -2055,6 +2247,10 @@ stringData:
 
 
 
+## 其他
+
+
+
 ### 集群安全机制
 
 
@@ -2104,10 +2300,6 @@ kubectl config ...
 # 可尝试正确性
 ...
 ```
-
-
-
-## 其他
 
 
 
@@ -2187,51 +2379,6 @@ Prometheus + Grafana（类似ELK）
 4. 配置Grafana：
    1. web进入配置Prometheus数据源（注意是集群内部的访问配置）
    2. 配置界面数据模板
-
-
-
-### 高可用
-
-单master节点，存在master挂掉的问题。
-
-
-
-#### 简介
-
-多master节点会存在一个 LoadBalancer 来分发工作节点到Master：
-
-1. 作为负载均衡
-2. 检查master节点状态
-3. 使用虚拟IP（即VIP）来避免直接使用master的IP
-
-
-
-#### 大致结构
-
-使用 **keepalived** 实现高可用解决单点故障
-
-用 **haproxy** 进行负载均衡
-
-1. 存在一个VIP
-
-2. 每个Master中额外配置：
-   - keepalived：用于配置虚拟IP、查看是否存活
-   - haproxy / nginx：用于负载均衡
-
-
-
-#### 流程
-
-1. 配置Master1
-   1. 部署keepalived和haproxy（注意一个网卡可以有一个IP和一个VIP？）
-   2. `kubeadm init --config kubeadm.yaml`
-2. 配置Master2
-   1. 部署keepalived和haproxy
-   2. 加入集群
-3. 配置节点
-   1. 加入集群
-
-
 
 
 
