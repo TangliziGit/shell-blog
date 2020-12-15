@@ -5,13 +5,155 @@
         * [Kubernetes的好处](#kubernetes的好处)
         * [Kubernetes 不是什么](#kubernetes-不是什么)
     * [架构](#架构)
+        * [节点](#节点)
+        * [通信](#通信)
+            * [从节点到Master](#从节点到master)
+            * [从Master到节点](#从master到节点)
+            * [API](#api)
+        * [控制器](#控制器)
+            * [如何控制资源](#如何控制资源)
+            * [设计实践](#设计实践)
+            * [云控制器管理器](#云控制器管理器)
+        * [如何运行应用](#如何运行应用)
+    * [机理](#机理)
+        * [架构](#架构)
+            * [etcd](#etcd)
+            * [API Server](#api-server)
+            * [Scheduler](#scheduler)
+            * [Controller](#controller)
+            * [Kubectl](#kubectl)
+            * [Kube-proxy](#kube-proxy)
+        * [控制器之间的协作](#控制器之间的协作)
+        * [Pod间的网络](#pod间的网络)
+            * [Flannel](#flannel)
+        * [服务如何实现](#服务如何实现)
+            * [iptabls模式](#iptabls模式)
+        * [高可用集群](#高可用集群)
+            * [高可用的应用](#高可用的应用)
+            * [高可用的Master](#高可用的master)
     * [核心概念 - Pod](#核心概念---pod)
+        * [对象](#对象)
+            * [描述文件](#描述文件)
+            * [对象管理](#对象管理)
+            * [名称和UID](#名称和uid)
+            * [名字空间](#名字空间)
+            * [标签和选择算符](#标签和选择算符)
+            * [注解](#注解)
+            * [字段选择器](#字段选择器)
+        * [容器](#容器)
+            * [Runtime Class](#runtime-class)
+            * [容器生命周期回调](#容器生命周期回调)
+        * [Pod](#pod)
+            * [基本概念](#基本概念)
+            * [使用](#使用)
+            * [共享网络与存储](#共享网络与存储)
+            * [Pod模板](#pod模板)
+        * [生命周期](#生命周期)
+            * [Pod 生命周期](#pod-生命周期)
+            * [容器生命周期](#容器生命周期)
+            * [容器重启策略](#容器重启策略)
+        * [创建流程](#创建流程)
+        * [影响调度的因素](#影响调度的因素)
+            * [资源配额](#资源配额)
+            * [节点亲和性](#节点亲和性)
+            * [拓扑分布约束](#拓扑分布约束)
+            * [污点与污点容忍](#污点与污点容忍)
+        * [特殊容器](#特殊容器)
+            * [Init 容器](#init-容器)
+            * [Sidecar 容器](#sidecar-容器)
+        * [健康检查机制](#健康检查机制)
+            * [重启策略](#重启策略)
+            * [探针执行方式与参数](#探针执行方式与参数)
+            * [存活探针](#存活探针)
+            * [就绪探针](#就绪探针)
     * [核心概念 - 工作负载](#核心概念---工作负载)
+        * [ReplicaSet](#replicaset)
+            * [工作原理](#工作原理)
+            * [何时使用](#何时使用)
+            * [vs. RC](#vs.-rc)
+            * [注意](#注意)
+        * [Deployment](#deployment)
+            * [工作原理](#工作原理)
+            * [清理策略](#清理策略)
+            * [发布策略 - 金丝雀发布](#发布策略---金丝雀发布)
+            * [发布策略 - 滚动式发布](#发布策略---滚动式发布)
+            * [发布策略 - 蓝绿发布](#发布策略---蓝绿发布)
+            * [发布策略 - 其他](#发布策略---其他)
+            * [注意](#注意)
+        * [StatefulSet](#statefulset)
+            * [意义](#意义)
+            * [工作原理](#工作原理)
+            * [注意](#注意)
+        * [DaemonSet](#daemonset)
+            * [场景](#场景)
+        * [Job](#job)
+            * [使用场景](#使用场景)
+            * [失效场景](#失效场景)
+            * [终止与清理](#终止与清理)
+            * [注意](#注意)
+        * [CronJob](#cronjob)
+            * [时间安排](#时间安排)
+            * [注意](#注意)
+        * [垃圾收集](#垃圾收集)
+            * [所有者和附属](#所有者和附属)
+            * [级联删除](#级联删除)
+            * [注意](#注意)
+        * [TTL 控制器](#ttl-控制器)
     * [核心概念 - 服务与网络](#核心概念---服务与网络)
+        * [Service](#service)
+            * [目的](#目的)
+            * [定义 - 位于集群内部](#定义---位于集群内部)
+            * [定义 - 位于集群外部 Endpoint](#定义---位于集群外部-endpoint)
+            * [定义 - 位于集群外部 ExternalName](#定义---位于集群外部-externalname)
+            * [服务发现](#服务发现)
+            * [服务暴露 - NodePort](#服务暴露---nodeport)
+            * [服务暴露 - LoadBalancer](#服务暴露---loadbalancer)
+            * [服务暴露 - Ingress](#服务暴露---ingress)
+            * [其他](#其他)
+        * [Ingress](#ingress)
+        * [Headless Service](#headless-service)
+        * [服务故障排查](#服务故障排查)
     * [核心概念 - 卷](#核心概念---卷)
+        * [emptyDir](#emptydir)
+        * [gitRepo](#gitrepo)
+        * [hostPath](#hostpath)
+            * [注意](#注意)
+        * [nfs](#nfs)
+        * [PersistantVolume](#persistantvolume)
+            * [介绍](#介绍)
+            * [供应模式](#供应模式)
+            * [生命周期](#生命周期)
+            * [配置](#配置)
+        * [StorageClass](#storageclass)
+            * [Provisioner](#provisioner)
+            * [回收策略](#回收策略)
     * [核心概念 - 配置](#核心概念---配置)
+        * [描述文件中的配置](#描述文件中的配置)
+            * [命令行参数](#命令行参数)
+            * [环境变量](#环境变量)
+        * [ConfigMap](#configmap)
+            * [创建 ConfigMap](#创建-configmap)
+            * [使用 ConfigMap - 环境变量](#使用-configmap---环境变量)
+            * [使用 ConfigMap - 文件挂载](#使用-configmap---文件挂载)
+            * [注意](#注意)
+        * [Secret](#secret)
+            * [安全](#安全)
+            * [配置](#配置)
+            * [注意](#注意)
     * [其他](#其他)
+        * [集群安全机制](#集群安全机制)
+            * [概述](#概述)
+            * [RBAC鉴权](#rbac鉴权)
+        * [Helm](#helm)
+            * [概念](#概念)
+            * [演示](#演示)
+        * [集群资源监控](#集群资源监控)
+            * [监控指标](#监控指标)
+            * [监控平台方案](#监控平台方案)
     * [实践](#实践)
+        * [常用命令](#常用命令)
+        * [简单实践](#简单实践)
+        * [开发应用最佳实践](#开发应用最佳实践)
 
 <!-- vim-markdown-toc -->
 
@@ -1059,19 +1201,40 @@ Deployment 也是通过一组字段来定义的：**Pod选择算符**、**副本
 
 
 
-#### 金丝雀部署
+#### 发布策略 - 金丝雀发布
 
-如果要使用 Deployment 向用户子集或服务器子集上线版本，则可以遵循 [资源管理](https://kubernetes.io/zh/docs/concepts/cluster-administration/manage-deployment/#canary-deployments) 所描述的金丝雀模式，创建多个 Deployment，每个版本一个。
+> [金丝雀发布、滚动发布、蓝绿发布到底有什么差别？关键点是什么？](https://mp.weixin.qq.com/s?__biz=MzI4MTY5NTk4Ng==&mid=2247489100&idx=1&sn=eab291eb345c074114d946b732e037eb&source=41#wechat_redirect)
 
-- 主要稳定的发行版将有一个 `track` 标签，其值为 `stable`
+![Image](https://mmbiz.qpic.cn/mmbiz_png/UicsouxJOkBdpqMAJvdAY6GFrP17hbic5SGhHLU9tsuxK5HEyge763mSQlkOUDOFv0VTRkkeySNaGseyJud7We9Q/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
-- 新版本的 `track` 标签带有不同的值 （即 `canary`）
+金丝雀发布一般先发 1 台，或者一个小比例，例如 2% 的服务器，主要做流量验证用，也称为金丝雀 (Canary)  测试（国内常称灰度测试）。以前旷工开矿下矿洞前，先会放一只金丝雀进去探是否有有毒气体，看金丝雀能否活下来，金丝雀发布由此得名。简单的金丝雀测试一般通过手工测试验证，复杂的金丝雀测试需要比较完善的监控基础设施配合，通过监控指标反馈，观察金丝雀的健康状况，作为后续发布或回退的依据。
 
-- 前端服务通过选择标签的公共子集（即忽略 `track` 标签）来覆盖两组副本
 
-  
 
-调整 `stable` 和 `canary` 版本的副本数量，以确定每个版本将接收 实时生产流量的比例（在本例中为 3:1）。 一旦有信心，你就可以将新版本应用的 `track` 标签的值从 `canary` 替换为 `stable`，并且将老版本应用删除。
+#### 发布策略 - 滚动式发布
+
+![Image](https://mmbiz.qpic.cn/mmbiz_png/UicsouxJOkBdpqMAJvdAY6GFrP17hbic5SKHIz2qMmia1VXJ5RNppGrLz0HFkXgB65ic73X2RoEANfhBsCTH0OrmGg/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+1. 滚动式发布一般先发 1 台，或者一个小比例，如 2% 服务器，主要做流量验证用，类似金丝雀 (Canary) 测试。
+2. 每次发布时，先将老版本 V1 流量从 LB 上摘除，然后清除老版本，发新版本 V2，再将 LB 流量接入新版本。这样可以尽量保证用户体验不受影响。
+
+
+
+#### 发布策略 - 蓝绿发布
+
+![Image](https://mmbiz.qpic.cn/mmbiz_png/UicsouxJOkBdpqMAJvdAY6GFrP17hbic5S1jN6fvMZxic1KriacrRbaGTynNrjz7VVe9sfBVtQYiaOCSztibIBWhelEQ/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+V1 版本称为蓝组，V2 版本称为绿组，发布时通过 LB 一次性将流量从蓝组直接切换到绿组，不经过金丝雀和滚动发布，蓝绿发布由此得名；
+
+
+
+#### 发布策略 - 其他
+
+- **功能开关发布**：新功能（V2 new feature）和老功能（V1 old feature）住在同一套代码中，新功能隐藏在开关后面，如果开关没有打开，则走老代码逻辑，如果开关打开，则走新代码逻辑。
+  - 需要一个配置中心或者开关中心这样的服务支持
+- **A/B 测试**：为了验证 V2 的功能正确性，同时也为了避免 V2 有问题时影响所有用户，先通过 LB 将手机端的流量切换到 V2 版本，经过一段时间的 A/B 比对测试和观察（主要通过用户和监控反馈），确保 V2 正常，则通过 LB 将全部流量切换到 V2。
+  - 功能开关和 A/B 测试有点相似，但功能开关一般是无状态和全量的
+- **影子测试**：对于一些涉及核心业务的遗留系统的升级改造，为了确保万无一失，有一种称为影子测试的大招，采用比较复杂的**流量复制、回放和比对技术**实现。
 
 
 
@@ -1646,9 +1809,12 @@ metadata:
   name: ingress-wildcard-host
 spec:
   rules:
+    # host 可选，可进行通配符匹配
   - host: "foo.bar.com"
     http:
       paths:
+      	# pathType: Prefix 匹配尾部斜线及子路径
+      	# pathType: Exact 严格匹配
       - pathType: Prefix
         path: "/bar"
         backend:
@@ -1664,6 +1830,13 @@ spec:
         backend:
           service:
             name: service2
+            port:
+              number: 80
+      - pathType: Prefix
+        path: "/bar"
+        backend:
+          service:
+            name: service3
             port:
               number: 80
 ```
