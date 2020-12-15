@@ -697,6 +697,28 @@ kubectl get statefulsets,services --all-namespaces --field-selector metadata.nam
 1. `PostStart`：在容器被创建之后立即被执行。
 2. `PreStop`：在容器被终止之前， 此回调会被调用。 此调用是阻塞同步调用，因此必须在发出删除容器的信号之前完成。 
 
+```yaml
+kind: Pod
+spec:
+  containers:
+  - name: web
+    image: nginx
+    lifecycle:
+      # 容器启动后，而非应用启动后
+      postStart:
+        exec:
+          command: [ "echo", "hello" ]
+      preStop:
+        httpGet:
+  		  path: /shutdown
+  		  port: 80
+  		  httpHeaders:
+  			- name: Custom-Header
+    		  value: header-value
+```
+
+
+
 
 
 ### Pod
@@ -843,7 +865,7 @@ spec:
 
 Pod 的 `spec` 中包含一个 `restartPolicy` 字段，其可能取值包括 Always、OnFailure 和 Never。默认值是 Always。
 
-`restartPolicy` 适用于 Pod 中的所有容器。`restartPolicy` 仅针对同一节点上 `kubelet` 的容器重启动作。当 Pod 中的容器退出时，`kubelet` 会按指数回退 方式计算重启的延迟（10s、20s、40s、...），其最长延迟为 5 分钟。 一旦某容器执行了 10 分钟并且没有出现问题，`kubelet` 对该容器的重启回退计时器执行 重置操作。
+`restartPolicy` 适用于 Pod 中的所有容器。`restartPolicy` 仅针对同一节点上 `kubelet` 的容器重启动作。当 Pod 中的容器退出时，`kubelet` 会按**指数回退** 方式计算重启的延迟（10s、20s、40s、...），其最长延迟为 5 分钟。 一旦某容器执行了 10 分钟并且没有出现问题，`kubelet` 对该容器的重启回退计时器执行 重置操作。
 
 
 - Always：当容器失效时，由kubelet自动重启该容器。
@@ -1201,6 +1223,13 @@ Deployment 也是通过一组字段来定义的：**Pod选择算符**、**副本
 
 
 
+#### 滚动更新策略
+
+1. Deployment 会在 `.spec.strategy.type==RollingUpdate`时，采取 滚动更新的方式更新 Pods。你可以指定 `maxUnavailable` 和 `maxSurge` 来控制滚动更新 过程。
+2. `minReadySeconds`：就绪后等待事件，用于控制滚动更新的速度。需要搭配Pod的就绪探针。
+
+
+
 #### 发布策略 - 金丝雀发布
 
 > [金丝雀发布、滚动发布、蓝绿发布到底有什么差别？关键点是什么？](https://mp.weixin.qq.com/s?__biz=MzI4MTY5NTk4Ng==&mid=2247489100&idx=1&sn=eab291eb345c074114d946b732e037eb&source=41#wechat_redirect)
@@ -1208,6 +1237,11 @@ Deployment 也是通过一组字段来定义的：**Pod选择算符**、**副本
 ![Image](https://mmbiz.qpic.cn/mmbiz_png/UicsouxJOkBdpqMAJvdAY6GFrP17hbic5SGhHLU9tsuxK5HEyge763mSQlkOUDOFv0VTRkkeySNaGseyJud7We9Q/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
 金丝雀发布一般先发 1 台，或者一个小比例，例如 2% 的服务器，主要做流量验证用，也称为金丝雀 (Canary)  测试（国内常称灰度测试）。以前旷工开矿下矿洞前，先会放一只金丝雀进去探是否有有毒气体，看金丝雀能否活下来，金丝雀发布由此得名。简单的金丝雀测试一般通过手工测试验证，复杂的金丝雀测试需要比较完善的监控基础设施配合，通过监控指标反馈，观察金丝雀的健康状况，作为后续发布或回退的依据。
+
+**两种方式**
+
+1. 发布Service时，选取正常版本和金丝雀版本。当使用金丝雀时，多发布一个金丝雀，并缩小一个正常版本即可。
+2. 直接滚动更新，当一个新版本被发布后作为金丝雀，立即停止更新。
 
 
 
@@ -1218,6 +1252,22 @@ Deployment 也是通过一组字段来定义的：**Pod选择算符**、**副本
 1. 滚动式发布一般先发 1 台，或者一个小比例，如 2% 服务器，主要做流量验证用，类似金丝雀 (Canary) 测试。
 2. 每次发布时，先将老版本 V1 流量从 LB 上摘除，然后清除老版本，发新版本 V2，再将 LB 流量接入新版本。这样可以尽量保证用户体验不受影响。
 
+**经典的滚动式发布**
+
+```yaml
+kind: Deployment
+spec:
+  strategy:
+    type: rollingUpdate
+    rollingUpdate:
+      # 最大峰值，升级过程中可以超出期望的 Pod 个数，默认25%
+      maxSurge: 1
+      # 最大不可用， 更新过程中不可用的 Pod 的个数上限，默认25%
+      maxUnavailable: 0
+```
+
+
+
 
 
 #### 发布策略 - 蓝绿发布
@@ -1225,6 +1275,22 @@ Deployment 也是通过一组字段来定义的：**Pod选择算符**、**副本
 ![Image](https://mmbiz.qpic.cn/mmbiz_png/UicsouxJOkBdpqMAJvdAY6GFrP17hbic5S1jN6fvMZxic1KriacrRbaGTynNrjz7VVe9sfBVtQYiaOCSztibIBWhelEQ/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
 
 V1 版本称为蓝组，V2 版本称为绿组，发布时通过 LB 一次性将流量从蓝组直接切换到绿组，不经过金丝雀和滚动发布，蓝绿发布由此得名；
+
+**经典的蓝绿发布**
+
+```yaml
+kind: Deployment
+spec:
+  strategy:
+    type: rollingUpdate
+    rollingUpdate:
+      # 最大峰值，升级过程中可以超出期望的 Pod 个数，默认25%
+      maxSurge: 100%
+      # 最大不可用， 更新过程中不可用的 Pod 的个数上限，默认25%
+      maxUnavailable: 0
+```
+
+
 
 
 
@@ -1252,10 +1318,13 @@ V1 版本称为蓝组，V2 版本称为绿组，发布时通过 LB 一次性将�
 # 创建 deployment 配置
 kubectl create deployment nginx --image nginx --dry-run client -o yaml > nginx-dep.yaml
 
+# 更改或升级
+kubectl edit deployment web
+kubectl apply -f web-dep.yaml
+
 # 升级
 # --record 将此CLI命令记录到annotation中
 kubectl set image deployment web nginx=nginx:1.15 --record
-kubectl edit deployment web
 
 # 查看升级状态 / 历史
 kubectl rollout status deployment web
@@ -1291,8 +1360,11 @@ kubectl rollout resume deployment web
 
 StatefulSets 对于需要满足以下一个或多个需求的应用程序很有价值：
 
-- 稳定的、唯一的网络标识符。
-- 稳定的、持久的存储。
+- 稳定的、唯一的**网络标识符**。
+  - 在有状态的分布式集群中，需要列出所有集群成员和IP，以便稳定通信。
+- 稳定的、持久的**存储**。
+  - 如果不结合稳定的网络标识，则新成员使用旧存储，很可能会出现问题。
+  - 每个Pod都拥有各自不同的状态，所以不能进行负载均衡随机访问Pod。
 - 有序的、优雅的部署和缩放。
 - 有序的、自动的滚动更新。
 
@@ -1329,9 +1401,58 @@ StatefulSets 对于需要满足以下一个或多个需求的应用程序很有�
 
 
 
-你需要在三个配置项之外，配置`serviceName`和`VolumeClaimTemplate`。
+#### 举例
+
+你需要：
+
+1. 配置一个带有StorageClass的PV，或者目标个手动PV；一个Headless Service；一个StatefulSet；
+2. 在`replicas`、`selector`和`spec`三个配置项之外，配置`serviceName`和`VolumeClaimTemplate`。
 
 ```yaml
+# 3个手动PV
+kind: List
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: pv-a
+  spec:
+    # PV主要是三点：capacity, accessMode, 具体卷
+    capacity:
+      storage: 1Mi
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Recycle
+    hostPath:
+      path: /tmp/pv-a
+- apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: pv-b
+  spec:
+    capacity:
+      storage: 1Mi
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Recycle
+    hostPath:
+      path: /tmp/pv-b
+- apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: pv-c
+  spec:
+    capacity:
+      storage: 1Mi
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Recycle
+    hostPath:
+      path: /tmp/pv-c
+---
+
+# Headless Serive
 apiVersion: v1
 kind: Service
 metadata:
@@ -1341,11 +1462,13 @@ metadata:
 spec:
   ports:
   - port: 80
-    name: web
+    name: http
   clusterIP: None
   selector:
     app: nginx
 ---
+
+# StatefulSet
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -1355,7 +1478,7 @@ spec:
     matchLabels:
       app: nginx # has to match .spec.template.metadata.labels
   serviceName: "nginx"
-  replicas: 3 # by default is 1
+  replicas: 3
   template:
     metadata:
       labels:
@@ -1364,22 +1487,25 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: nginx
-        image: k8s.gcr.io/nginx-slim:0.8
+        image: nginx
         ports:
-        - containerPort: 80
-          name: web
+        - containerPort: 8080
+          name: http
         volumeMounts:
         - name: www
           mountPath: /usr/share/nginx/html
+  # 新的配置项，用于创建PVC
   volumeClaimTemplates:
   - metadata:
       name: www
     spec:
       accessModes: [ "ReadWriteOnce" ]
-      storageClassName: "my-storage-class"
+      # 使用自动分配时开启
+      # storageClassName: "my-storage-class"
       resources:
         requests:
-          storage: 1Gi
+          # 1Mi=1024x1024; 1M=1000x1000
+          storage: 1Mi
 ```
 
 
@@ -1849,7 +1975,7 @@ spec:
 
 可以通过指定`spec.clusterIP`的值为 `None` 来创建 Headless Service。
 
-Headless Service配置后，当DNS查找服务时，会返回多个Pod的A记录。指向支持次服务的Pod。
+Headless Service配置后，当DNS查找服务时，会返回多个Pod的A/AAAA记录，指向支持次服务的Pod。或查询SRV记录，返回服务的主机名和端口号。
 
 ```yaml
 apiVersion: v1
@@ -1871,14 +1997,40 @@ Server:		10.96.0.10
 Address:	10.96.0.10#53
 
 Name:	headless-service.default.svc.cluster.local
-Address: 10.244.1.7
+Address: 10.244.2.10
 Name:	headless-service.default.svc.cluster.local
-Address: 10.244.1.5
-Name:	headless-service.default.svc.cluster.local
-Address: 10.244.1.8
-Name:	headless-service.default.svc.cluster.local
-Address: 10.244.1.6
+Address: 10.244.1.32
+
+
+$ nslookup -q=SRV headless-service
+Server:		10.96.0.10
+Address:	10.96.0.10#53
+
+headless-service.default.svc.cluster.local	service = 0 50 8080 10-244-1-32.headless-service.default.svc.cluster.local.
+headless-service.default.svc.cluster.local	service = 0 50 8080 10-244-2-10.headless-service.default.svc.cluster.local.
 ```
+
+对比普通的Service，只会暴露一个A/AAAA的IP地址，或者SRV的IP和Port：
+
+```shell
+$ nslookup  alpine
+Server:		10.96.0.10
+Address:	10.96.0.10#53
+
+Name:	alpine.default.svc.cluster.local
+Address: 10.104.245.140
+
+
+$ nslookup -q=srv alpine   
+Server:		10.96.0.10
+Address:	10.96.0.10#53
+
+alpine.default.svc.cluster.local	service = 0 100 80 alpine.default.svc.cluster.local.
+```
+
+
+
+
 
 
 
@@ -2612,6 +2764,17 @@ Prometheus + Grafana（类似ELK）
 ### 常用命令
 
 > https://www.jianshu.com/p/fa2d827ac725
+
+**使用proxy对apiserver进行代理**
+
+```shell
+$ k proxy
+Starting to serve on 127.0.0.1:8001
+
+$ curl localhost:8001/api/v1/namespaces/default/pods/web-0/proxy/
+```
+
+
 
 
 
