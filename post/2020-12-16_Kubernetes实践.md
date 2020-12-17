@@ -145,7 +145,7 @@ k delete -k .
 
 
 
-### Deployment
+### Deployment - web项目
 
 > [示例：使用 Persistent Volumes 部署 WordPress 和 MySQL](https://kubernetes.io/zh/docs/tutorials/stateful-application/mysql-wordpress-persistent-volume/)
 
@@ -187,17 +187,79 @@ spec:
 
 
 
-### StatefulSet - MySQL 主从
+### StatefulSet - Redis 主从
+
+> https://www.simplerfroze.com/articles/2020/01/19/1579418881265.html
+
+> https://www.jianshu.com/p/e71c5a3a7162
 
 StatefulSet 目前来看，场景只有主从数据库的维护比较便利。
 
 与Deploy + PV的主要优势是**每个实例都有独有的存储空间**，用于从数据库是最方便的。
 
-
-
-### StatefulSet - Redis 主从
-
-> https://www.simplerfroze.com/articles/2020/01/19/1579418881265.html
+```yaml
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: ms-redis
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ms-redis 
+  serviceName: ms-redis
+  template:
+    metadata:
+      name: ms-redis
+      labels:
+        app: ms-redis 
+    spec:
+      initContainers:
+      - name: init-ms
+        image: busybox:latest
+        command: [ "sh", "/scripts/init.sh" ]
+        volumeMounts:
+        - name: redis-config
+          mountPath: /usr/local/etc/redis
+        - name: config
+          mountPath: /tmp
+        - name: init-scripts
+          mountPath: /scripts
+      containers:
+      - name: redis
+        image: redis
+        args: [ "redis-server", "/usr/local/etc/redis/redis.conf" ]
+        ports:
+        - name: redis
+          containerPort: 6379
+        volumeMounts:
+        - name: redis-config
+          mountPath: /usr/local/etc/redis
+        - name: redis-pvc
+          mountPath: /data
+      volumes:
+      - name: redis-config
+        emptyDir: {}
+      - name: config
+        configMap:
+          name: redis-config
+      - name: init-scripts
+        configMap:
+          name: init-scripts
+          items:
+          - key: init.sh
+            path: init.sh
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-pvc
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: redis-storage
+      resources:
+        requests:
+          storage: 1Gi
+```
 
 
 
