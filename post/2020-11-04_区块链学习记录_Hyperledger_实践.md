@@ -1,4 +1,4 @@
-3<!-- vim-markdown-toc GitLab -->
+<!-- vim-markdown-toc GitLab -->
 
 * [区块链技术实践 - Hyperledger Fabric 2 实践](#区块链技术实践-hyperledger-fabric-2-实践)
     * [部署生产网络](#部署生产网络)
@@ -12,6 +12,8 @@
         * [生成创世区块](#生成创世区块)
         * [创建并运行节点](#创建并运行节点)
         * [总结](#总结)
+    * [纠错](#纠错)
+        * [节点不能加入通道](#节点不能加入通道)
 
 <!-- vim-markdown-toc -->
 
