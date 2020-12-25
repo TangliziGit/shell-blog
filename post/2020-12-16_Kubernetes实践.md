@@ -9,8 +9,7 @@
             * [常用命令](#常用命令)
             * [可用的配置](#可用的配置)
     * [控制器](#控制器)
-        * [Deployment](#deployment)
-        * [StatefulSet - MySQL 主从](#statefulset---mysql-主从)
+        * [Deployment - web项目](#deployment---web项目)
         * [StatefulSet - Redis 主从](#statefulset---redis-主从)
     * [服务](#服务)
         * [Service](#service)
@@ -24,7 +23,11 @@
 
 <!-- vim-markdown-toc -->
 
+
 # Kubernetes 实践
+
+![k8s](/static/image/2020-12-25/k8s.png)
+
 
 所有例子将放置在github上。
 
@@ -465,4 +468,7 @@ spec:
             name: redis-env
             key: MASTER
 ```
+
+
+
 
