@@ -13,6 +13,11 @@ nav ul li {
     padding: 0px 4px;
 }
 
+img {
+  display: block !important;
+  margin: 0 auto;
+}
+
 @media (min-width: 960px) {
     .content {
         margin: auto;

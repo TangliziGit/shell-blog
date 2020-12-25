@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+name="$1"
+url="$2"
+dir=$(date +%Y-%m-%d)
+path="static/image"
+
+if [ ! -d "$path" ]; then
+    echo "Please check your current work dir if it's the shell-blog home."
+    exit 1
+elif [ ! -d "$path/$dir" ]; then
+    mkdir "$path/$dir"
+fi
+
+wget -q -O "$path/$dir/$name" "$url"
+
+name="$path/$dir/$name"
+ext=$(file "$name" --extension -b | awk -F/ '{print $1}')
+mv "$name" "$name.$ext"
+
+echo "saved $name.$ext"
