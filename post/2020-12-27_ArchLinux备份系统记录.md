@@ -149,8 +149,6 @@ UUID=68b08bda-456d-44af-8f8f-c262ebfc7d13  /bak  btrfs   rw,relatime,compress-fo
 
 
 
-
-
 ### 增量备份
 
 注意 rsync 的路径遵循GPL协议，它会有特殊的规则，比如`xxx/`会表示`xxx`目录下的所有文件。
@@ -172,7 +170,7 @@ fi
 rsync --archive --one-file-system --inplace \
   --hard-links --acls --xattrs --sparse \
   --human-readable --numeric-ids --delete --delete-excluded \
-  --exclude-from=/root/exclude \
+  --exclude-from=/bak/etc/exclude \
   --verbose --progress --stats \
   / /bak/backup/root/current $args
 
@@ -205,12 +203,32 @@ fi
 rsync --archive --one-file-system --inplace \
   --hard-links --acls --xattrs --sparse \
   --human-readable --numeric-ids --delete --delete-excluded \
-  --exclude-from=/root/exclude \
+  --exclude-from=/bak/etc/exclude \
   --verbose --progress --stats \
   "$1" / $args
 
 if [[ $dry == -w ]]; then
     echo "$(date +%Y/%m/%d_%H:%M) Recovered from $1" >> /bak/etc/recovery.log
 fi
+```
+
+ 
+
+### 排除文件
+
+`/bak/etc/exclude`
+
+```
+__pycache__
+lost+found
+/var/cache/*/*
+/var/tmp/
+/dev
+/proc
+/sys
+/tmp
+/run
+/mnt
+/media
 ```
 
