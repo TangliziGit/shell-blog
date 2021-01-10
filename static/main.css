@@ -3,12 +3,12 @@
     margin-top: 0px;
 }
 
-nav ul {
+.nav ul {
     list-style-type: none;
     margin: 0;
 }
 
-nav ul li {
+.nav ul li {
     float: right;
     padding: 0px 4px;
 }
@@ -40,7 +40,7 @@ img {
         overflow: auto;
     }
 
-    .markdown-nav-content ul {
+    .markdown-nav-content nav ul {
         padding-left: 20px;
         margin-top: 2px;
     }
