@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="/static/texmath.css">
     <link rel="stylesheet" href="/static/gruvbox-light.min.css">
     <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
-    <script src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"></script>
     <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
     <script src="/static/highlight.min.js"></script>
     <script src="/static/katex.min.js"></script>
@@ -18,6 +17,17 @@
 </head>
 <body>
     ##nav##
+    <div class="markdown-nav-wrapper">
+        <div class="markdown-nav-content small-hidden" id="toc">
+            <h1 style="text-align: center"> Oops... </h1>
+            <p style="text-align: center"> There is no TOC for this article. </p>
+            <h2 style="text-align: center" id="emoji"></h2>
+        </div>
+        <div class="markdown-nav-btn" onclick="toggleToc()">
+            <font style="color: white;">T</font>
+        </div>
+    </div>
+
     <div style="text-align: right">
         <h1 id="title"></h1>
         <small id="date"></small>
@@ -26,12 +36,6 @@
 
     <article id="content" class="markdown-body content"></article>
     <div id="gitalk-container" class="content"></div>
-
-    <script>
-        window.addEventListener('load', () => {
-            new Darkmode().showWidget();
-        });
-    </script>
 
     <script>
         const getTags = function(filename) {
@@ -46,8 +50,7 @@
         let _date = split[0];
         let name = split.slice(1).join(' ').replace(/^\[.+?\]/, "");
         let tags = getTags(filename);
-        console.log(tags);
-        
+
         document.title = "post - " + name;
         document.querySelector('#title').innerHTML = name;
         document.querySelector('#date').innerHTML = _date;
@@ -62,30 +65,54 @@
                 return '';
               }
             }).use(tm, {delimiters:'dollars', macros:{"\\RR": "\\mathbb{R}"}});
-            let result = md.render(resp);
 
-            document.querySelector("#content").innerHTML = result;
+            const [toc, content] = resp.trim()
+                .replace(/^<!-- vim-markdown-toc( \w+ || )-->$/gm, "SPLITOR")
+                .split("SPLITOR")
+                .filter(x => x.length != 0);
+
+            if (content === undefined) {
+                // when there is not a toc, content will be undefined.
+                document.querySelector("#content").innerHTML = md.render(toc);
+            } else {
+                document.querySelector("#content").innerHTML = md.render(content);
+                document.querySelector("#toc").innerHTML = md.render(toc);
+            }
         }).catch(error => {
             console.log(error);
         });
     </script>
 
-	<script>
-		const gitalk = new Gitalk({
-		  clientID: '372031630877aadeefd6',
-		  clientSecret: '3e88d8786deee740d2eebe9726b47be61f99855e',
-		  repo: 'blog-comments',
-		  owner: 'TangliziGit',
-		  admin: ['TangliziGit'],
-		  id: filename.slice(11).slice(0, 50).replace(/^\[.+?\][_+]/, ""),
-          title: _date + " " + name,
-          body: "Ref: " + location.href,
-          labels: tags,
-		  distractionFreeMode: false
-		});
+    <script>
+        const toc = document.querySelector("#toc");
 
-		gitalk.render('gitalk-container');
-	</script>
-	
+        function toggleToc() {
+            if (toc.classList.contains("small-hidden"))
+                toc.classList.remove("small-hidden");
+            else
+                toc.classList.add("small-hidden");
+        }
+
+        const emoji = document.querySelector("#emoji");
+        const emojiList = ["߹𖥦߹", "( ･-･ )", "( •́ㅿ•̀ )", "(´･×･`)", "(´-ι_-｀)", "(｡•́︿•̀｡)", "(ー_ー)!!"];
+        emoji.innerHTML = emojiList[(new Date()) % (emojiList.length)];
+    </script>
+
+    <script>
+        const gitalk = new Gitalk({
+            clientID: '372031630877aadeefd6',
+            clientSecret: '3e88d8786deee740d2eebe9726b47be61f99855e',
+            repo: 'blog-comments',
+            owner: 'TangliziGit',
+            admin: ['TangliziGit'],
+            id: filename.slice(11).slice(0, 50).replace(/^\[.+?\][_+]/, ""),
+            title: _date + " " + name,
+            body: "Ref: " + location.href,
+            labels: tags,
+            distractionFreeMode: false
+        });
+        gitalk.render('gitalk-container');
+    </script>
+
 </body>
 </html>
