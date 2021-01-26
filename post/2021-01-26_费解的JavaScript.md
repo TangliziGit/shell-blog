@@ -172,7 +172,9 @@ setTimeout(()=>{
 }, 0)
 ```
 
-浏览器端运行结果：`timer1=>promise1=>timer2=>promise2`
+浏览器端运行结果：`timer1 => promise1 => timer2 => promise2`
+
+Node 端运行结果：`timer1 => timer2 => promise1 => promise2`
 
 
 
