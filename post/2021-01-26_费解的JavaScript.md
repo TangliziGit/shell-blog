@@ -326,7 +326,7 @@ JS 中有 7 种类型（除了`BigInt`），`undefined`、`null`、`Boolean`、`
 
 ### 类型检查
 
-首先指出 JS 是隐式动态弱类型。
+首先指出 JS 是隐式动态弱类型。弱类型体现在隐式类型转换上（例子：JSFuck）。
 
 
 
@@ -576,17 +576,176 @@ public class Main {
 
 
 
-
-
-
-
 ### 等价关系
+
+> https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Equality_comparisons_and_sameness
+
+ES2015 中有四种相等算法：
+
+- **抽象相等比较**（`==`）
+- **严格相等比较**（`===`）：用于 `Array.prototype.indexOf`, `Array.prototype.lastIndexOf`, 和 `case-matching`
+- **同值零**（SameValueZero）： `%TypedArray%` 和 `ArrayBuffer `构造函数、`Map`和`Set`操作、`String.prototype.includes`
+- **同值**（SameValue）：所有其他地方。
+
+
+
+而 JS 暴露给用户的比较操作有：
+
+- 抽象相等比较：执行**隐式类型转换**（注意这里仅仅是`==`的转换，其他运算符有其他方式）。
+- 严格相等比较：不执行隐式类型转换（类型不同返回 false），仅在`Number`上有特殊规则。
+  - 非`Number`类型时：当两个变量类型相同，且值相同时，相等。
+  - 是`Number`类型时：`NaN`自身不相等，`+0 -0`相等，其他值相等。
+- `Object.is`：在严格相等比较上，规定`NaN`自身相等，`-0 +0`不相等。
+
+
+
+#### 抽象相等比较
+
+除了`NaN`以外，满足等价关系（自反对称传递），
+
+<table class="standard-table">
+ <thead>
+  <tr>
+   <th scope="row"></th>
+   <th colspan="7" scope="col" style="text-align: center;">被比较值 B</th>
+  </tr>
+ </thead>
+ <tbody>
+  <tr>
+   <th scope="row"></th>
+   <td></td>
+   <td style="text-align: center;">Undefined</td>
+   <td style="text-align: center;">Null</td>
+   <td style="text-align: center;">Number</td>
+   <td style="text-align: center;">String</td>
+   <td style="text-align: center;">Boolean</td>
+   <td style="text-align: center;">Object</td>
+  </tr>
+  <tr>
+   <th colspan="1" rowspan="6" scope="row">被比较值 A</th>
+   <td>Undefined</td>
+   <td style="text-align: center;"><code>true</code></td>
+   <td style="text-align: center;"><code>true</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>IsFalsy(B)</code></td>
+  </tr>
+  <tr>
+   <td>Null</td>
+   <td style="text-align: center;"><code>true</code></td>
+   <td style="text-align: center;"><code>true</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>IsFalsy(B)</code></td>
+  </tr>
+  <tr>
+   <td>Number</td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>A === B</code></td>
+   <td style="text-align: center;"><code>A === ToNumber(B)</code></td>
+   <td style="text-align: center;"><code>A=== ToNumber(B) </code></td>
+   <td style="text-align: center;"><code>A== ToPrimitive(B)</code></td>
+  </tr>
+  <tr>
+   <td>String</td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>ToNumber(A) === B</code></td>
+   <td style="text-align: center;"><code>A === B</code></td>
+   <td style="text-align: center;"><code>ToNumber(A) === ToNumber(B)</code></td>
+   <td style="text-align: center;"><code>ToPrimitive(B) == A</code></td>
+  </tr>
+  <tr>
+   <td>Boolean</td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>false</code></td>
+   <td style="text-align: center;"><code>ToNumber(A) === B</code></td>
+   <td style="text-align: center;"><code>ToNumber(A) === ToNumber(B)</code></td>
+   <td style="text-align: center;"><code>A === B</code></td>
+   <td style="text-align: center;">ToNumber(A) == ToPrimitive(B)</td>
+  </tr>
+  <tr>
+   <td>Object</td>
+   <td style="text-align: center;"><font face="Consolas, Liberation Mono, Courier, monospace">false</font></td>
+   <td style="text-align: center;"><font face="Consolas, Liberation Mono, Courier, monospace">false</font></td>
+   <td style="text-align: center;"><code>ToPrimitive(A) == B</code></td>
+   <td style="text-align: center;"><code>ToPrimitive(A) == B</code></td>
+   <td style="text-align: center;">ToPrimitive(A) == ToNumber(B)</td>
+   <td style="text-align: center;">
+    <p><code>A === B</code></p>
+   </td>
+  </tr>
+ </tbody>
+</table>
+当`A == B`中，二者类型不同时，归纳一下：
+
+1. `undefined`与`null`相等，其他值不等。
+2. 接下来进行类型转换：
+   - `Boolean`=>`Number`
+   - `Object`=>`Number`/`String`（先执行`valueOf`，若不存在函数则再`toString`）
+   - `String`=>`Number`（当对方是`Object`并转换为`String`时，不需要再转）
+3. 进行**严格相等比较**。
+
+
+
+![equality_triangle](/static/image/2021-01-27/equality_triangle.jpeg)
+
+是时候来看看这张图了。
+
+我们来解释一下为何如此。那么按照类型转换的规则：
+
+1. 先给对象`[]`做个类型转换，由于`valueOf()`的值仍然是个对象，于是执行`toString`。
+2. `[].toString() === ""`所以在抽象相等比较上，`[]`是完全可以看作空字符串。
+
+于是剩下的`String`和`Number`之间的比较就会方便很多。
+
 
 
 
 ### 空值
 
+这里讲的「空值」是指一些不包含任何数据的类型，因为他们被设计为特殊的含义，不需要携带数据。
 
+- **`undefined`**：它是<u>全局对象</u>的一个**属性**，也是一个类型。用于描述未定义变量、未赋值的变量、无返回值的函数的返回值。
+
+- **`null`**：它不是全局对象的一个**变量**。表示缺少的标识，指示变量未指向任何对象。
+
+  - 所以`Null`是一个类型，`null`是这个类型的值，但本着初心`typeof null`则是`Object`。
+
+- **`NaN`**：是`Number`类型下的一个<u>全局对象</u>的属性。通常是由计算或解析失败返回。
+
+- **`void`**：它是一个运算符，对给定的表达式进行求值，然后返回 [`undefined`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/undefined)。作用是实现带有副作用的`undefined`。下面说一下它的应用。
+
+  1. 立即执行的函数表达式：利用 `void` 运算符让 JavaScript 引擎把一个`function`关键字识别成函数表达式而不是函数声明。
+
+     ```javascript
+     void function iife() {
+         // ...
+     }();
+     ```
+
+  2. JavaScript URL：当用户点击一个以 `javascript:` URI 时，它会执行URI中的代码，然后用返回的值替换页面内容，除非返回的值是[`undefined`](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/undefined)。
+
+     ```javascript
+     <a href="javascript:void(0);">
+       这个链接点击之后不会做任何事情，如果去掉 void()，
+       点击之后整个页面会被替换成一个字符 0。
+     </a>
+     <p> chrome中即使<a href="javascript:0;">也没变化，firefox中会变成一个字符串0 </p>
+     <a href="javascript:void(document.body.style.backgroundColor='green');">
+       点击这个链接会让页面背景变成绿色。
+     </a>
+     ```
+
+  3. 在箭头函数中避免泄漏：因为单行的箭头函数会默认设定返回值，所以当你不需要返回值时，可以使用它。
+
+     ```javascript
+     button.onclick = () => void doSomething();
+     // 当 doSomething 函数重构成可以返回值后，这里可以方式泄漏
+     ```
 
 
 
@@ -596,43 +755,456 @@ public class Main {
 
 ### 属性描述符
 
+> https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty
+
+对象里目前存在的属性描述符有两种主要形式：**数据描述符**和**存取描述符**。一个描述符只能是这两者其中之一；不能同时是两者。
+
+- ***数据描述符***是一个具有值的属性，该值包括可写性等。
+  - `value`：该属性对应的值。
+  - `writable`：描述是否可写。
+- ***存取描述符***是由 getter 函数和 setter 函数所描述的属性。
+  - `get`：属性的 getter 函数，当访问该属性时，会调用此函数。该函数的返回值会被用作属性的值。
+  - `set`：属性的 setter 函数，当属性值被修改时，会调用此函数。
+
+它们还共享以下可选键值：
+
+- `configurable`：描述该属性的描述符能否被改变。 
+- `enumerable`：描述该属性是否可枚举。
+
+关于默认初始值：
+
+- 拥有布尔值的键 `configurable`、`enumerable` 和 `writable` 的默认值都是 `false`。
+- 属性值和函数的键 `value`、`get` 和 `set` 字段的默认值为 `undefined`。
 
 
-### 浅拷贝
+
+### 深浅拷贝
+
+JS 本身不带深拷贝，如果想要使用深拷贝，请使用第三方库，如`lodash.cloneDeep`、`R.clone`。
+
+JS 很多地方使用了浅拷贝，现在总结浅拷贝的一些方法：
+
+- 直接赋值：注意直接赋值是复制了指针，相当于引用或者重命名。
+
+- 解构赋值与展开运算符：对象或数组的浅拷贝。
+
+- `Object.assign`：对象的第一层是深拷贝的，嵌套的更深层则是浅拷贝。
 
 
 
 ## 面向对象
 
+> **JavaScript (** **JS** ) 是一种具有函数优先的轻量级，解释型或即时编译型的编程语言。
+>
+> JavaScript 是一种基于原型编程、多范式的动态脚本语言，并且支持面向对象、命令式和声明式（如函数式编程）风格。
+
+注意 JS 不是一个经典的 OOP 语言，它仅是支持 OOP。而且直到 Node.js v14 为止，仍然没有默认支持将私有方法特性。至今浏览器平台和服务器平台也没有支持装饰器特性。
+
 
 
 ### 原型链
+
+JS 用原型链来模拟了面向对象的子类型多态。
+
+原型链中有三个概念：**构造函数**、**实例对象**、**原型**。
+
+
+
+#### 构造函数
+
+它为了提供一个便捷的对象构造方法，注意使用了`new`和`this`关键字：
+
+```javascript
+function Person(name) {
+  this.name = name;
+  this.greeting = function() {
+    alert('Hi! I\'m ' + this.name + '.');
+  };
+}
+
+const p = new Person("foo");
+```
+
+如何理解对象的构造过程？我们从`new`运算符来说：
+
+**`new` 运算符**创建一个用户定义的对象类型的实例或具有构造函数的内置对象的实例。
+
+**`new`** 关键字会进行如下的操作：
+
+1. 创建一个空的简单JavaScript对象（即`{}`）；
+2. 链接该对象（设置该对象的**constructor**）到另一个对象 ；
+3. 将步骤1新创建的对象作为构造函数的`this`上下文 ；
+4. 如果该函数没有返回对象，则返回`this`。
+
+
+
+#### 原型
+
+每个对象拥有一个**原型对象**，对象以其原型为模板，从原型继承方法和属性。原型对象也可能拥有原型，并从中继承方法和属性，一层一层、以此类推。这种关系被称为**原型链** (prototype chain)，它解释了为何一个对象会拥有定义在其他对象中的属性和方法。（每个实例访问属性的过程，都类似于<u>自动解引用</u>，一层层向上访问，直到找到合适的属性为止）
+
+下面举一个例子：
+
+![prototype_chain](/static/image/2021-01-16/prototype_chain.png)
+
+```javascript
+// 除了箭头函数以外，都可以作为构造函数
+let Cons = function(){};
+let Ins = new doSomething()
+
+console.assert( Ins.__proto__ === Cons.prototype )
+console.assert( Ins.__proto__.prototype === Object.prototype )
+console.assert( Cons.__proto__ === Function.prototype )
+```
+
+**构造函数**：拥有prototype和[[Prototype]]
+
+**原型对象**：拥有[[Prototype]]、constructor和自定义的属性；但注意Object.prototype.[[Prototype]]为null
+
+**实例对象**：拥有[[Prototype]]
+
+
+
+#### 原型链继承
+
+了解了原型链的原理，那么就可以实现继承了。**原型链继承的步骤**：
+
+1. 构造函数中使用父类的构造函数，作用于当前的`this`
+2. 子类的原型关联父类的原型，使用`Object.create()`
+3. 设置子类原型的构造函数、可继承的方法和属性。
+
+```javascript
+// Person
+function Person(first, last, age, gender, interests) {
+  this.name = { first, last };
+  this.age = age;
+  this.gender = gender;
+  this.interests = interests;
+}
+
+Person.prototype.greeting = function() {
+  alert('Hi! I\'m ' + this.name.first + '.');
+};
+
+
+// Teacher
+function Teacher(first, last, age, gender, interests, subject) {
+  // 1. call 指明了在运行这个函数时想对“this”指定的值 
+  Person.call(this, first, last, age, gender, interests);
+
+  this.subject = subject;
+}
+
+// 2. 关联原型
+Teacher.prototype = Object.create(Person.prototype);
+// 3. 设置构造函数、可继承的方法和属性
+Teacher.prototype.constructor = Teacher;
+Teacher.prototype.greeting = function() { /* */ }
+Teacher.prototype.teacherID = /*  */;
+```
+
 
 
 
 ### 顶层对象
 
+顶层对象在浏览器环境指的是`window`，在Node中指的是`global`对象。
+
+ES5 中顶层对象和全局变量是等价的，全局变量对编程者来说造成了很大的麻烦，因为一个疏忽就把变量泄露到了全局，全局变量的属性到处都是可读可写的，非常不流于模块化编程。
+
+ES6为了完善这一点，同时为了保持兼容性，由`var`，**`function`定义全局变量依旧是顶层对象的属性**，另一方面规定，`let`、`const`、`class`的全局变量不属于顶层对象的属性。也就是说ES6开始，全局变量将逐渐与顶层对象的属性脱钩。
+
+JavaScript 语言存在一个顶层对象，它提供全局环境（即全局作用域），所有代码都是在这个环境中运行。但是，顶层对象在各种实现里面是不统一的。
+
+ES2020 在语言标准的层面，引入globalThis作为顶层对象。也就是说，任何环境下，globalThis都是存在的，都可以从它拿到顶层对象，指向全局环境下的this。
+
+垫片库global-this模拟了这个提案，可以在所有环境拿到globalThis。
+
 
 
 ### this 的指向
 
+> https://www.cnblogs.com/pssp/p/5216085.html
+
+首先需要明确`function`、箭头函数、全局作用域下的`this`指向都不相同。
+
+- **全局作用域**：`this`值顶层对象`window`或`global`。
+- **箭头函数**：在创建时绑定外层<u>代码块</u>的`this`。
+- **`function`**：**只有函数执行的时候才能确定this到底指向谁**，实际上this的最终指向的是那个调用它的对象。
+  - 注意`function`是顶层对象的属性，直接调用`fn()`时，`this`指向顶层对象。
+
+```javascript
+const o1 = {
+  name: "o1",
+  fn1() {
+    console.log(this);
+  },
+  fn2: () => {
+    console.log(this);
+  }
+};
+
+let o2 = Object.assign({}, o1);
+o2.name = "o2";
+
+o1.fn1();   // o1
+o1.fn2();   // window
+o2.fn1();   // o2
+o2.fn2();   // window
+```
 
 
-### 内部属性
 
-
-
-## 实例
+## 经典例子
 
 
 
 ### 数据双向绑定
 
+```javascript
+function bind(a, b, desc) {
+    return new Proxy(a, {
+        get: function(target, key) {
+            console.log(`${desc} [get] ${key}`);
+            return Reflect.get(target, key);
+        },
+        set: function(target, key, value) {
+            console.log(`${desc} [set] ${key} => ${value}`);
+            Reflect.set(b, key, value);
+            return Reflect.set(target, key, value);
+        },
+        deleteProperty: function(target, key) {
+            console.log(`${desc} [del] ${key}`);
+            Reflect.deleteProperty(b, key);
+            return Reflect.deleteProperty(target, key);
+        },
+    })
+}
 
+let [a, b] = [ {}, {} ];
+[a, b] = [ bind(a, b, "A"), bind(b, a, "B") ];
 
-### 多继承
+a.name;
+a.name = "Alice";
+b.age = 18;
+b.id = "0001"
+delete b.id;
+
+console.log(a);
+console.log(b);
+
+// A [get] name
+// A [set] name => Alice
+// B [set] age => 18
+// B [set] id => 0001
+// B [del] id
+// { name: 'Alice', age: 18 }
+// { name: 'Alice', age: 18 }
+```
 
 
 
 ### 自动执行函数
+
+```javascript
+import axios from "axios";
+
+function run(fn) {
+    const gen = fn();
+
+    return new Promise(resolve => {
+        function next(data){
+            const result = gen.next(data);
+            if (result.done) { resolve(); return; }
+            result.value.then(next);
+        }
+
+        next();
+    });
+}
+
+function* main() {
+    const rs = [
+        yield axios.get("http://www.example.com/"),
+        yield axios.get("http://www.baidu.com/"),
+    ];
+
+    rs
+        .map(resp => resp.data.match(/<title>(.*)<\/title>/)[1])
+        .forEach(title => console.log(title));
+}
+
+run(main)
+    .then(_ => console.log("generator done"));
+
+// 输出：
+// Example Domain
+// 百度一下，你就知道
+// generator done
+```
+
+
+
+### 异步迭代器
+
+```javascript
+import axios from "axios";
+
+async function* visit(urls) {
+    for (const url of urls)
+        yield await axios.get(url);
+}
+
+async function main() {
+    const urls = [
+        "http://www.baidu.com/",
+        "http://www.example.com/",
+    ];
+
+    for await (const resp of visit(urls)) {
+        const title = resp.data.match(/<title>(?<title>.*)<\/title>/)?.groups.title;
+        console.log(title);
+    }
+}
+
+main()
+    .then(_ => console.log("done"));
+```
+
+
+
+### 单继承
+
+```javascript
+// ---------- Person ----------
+function Person(name, age) {
+    this.name = name;
+    this.age = age;
+}
+
+Person.prototype.greeting = function() {
+    return `Hi! ${this.age}-${this.name}`;
+}
+
+
+// ---------- Student ----------
+function Student(name, age, id) {
+    Person.call(this, name, age);
+    this.id = id;
+}
+
+Student.prototype = Object.create(Person.prototype);
+Student.prototype.constructor = Student;
+
+const s = new Student("zhangsan", 12, "0001");
+console.log(s.greeting());
+// Hi! 12-zhangsan
+```
+
+
+
+```javascript
+// ES6
+class Person {
+    constructor(name, age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    greeting() {
+        return `Hi ${this.age}-${this.name}`;
+    }
+}
+
+class Student extends Person {
+    constructor(name, age, id) {
+        super(name, age);
+        this.id = id;
+    }
+
+    greeting() {
+        return `${super.greeting()}, and your id is ${this.id}`;
+    }
+}
+
+const s = new Student("zhangsan", 12, "0001");
+console.log(s.greeting());
+// Hi 12-zhangsan, and your id is 0001
+```
+
+
+
+### 多继承
+
+```javascript
+import yaml from 'js-yaml';
+
+function mix(...classes) {
+    function copy(target, source) {
+      for (let key of Reflect.ownKeys(source)) {
+        if ( key !== 'constructor'
+          && key !== 'prototype'
+          && key !== 'name'
+        ) {
+          let desc = Object.getOwnPropertyDescriptor(source, key);
+          Object.defineProperty(target, key, desc);
+        }
+      }
+    }
+
+    const result = class {
+        constructor() {
+            // 拷贝实例属性
+            for (const cls of classes) {
+                copy(this, new cls());
+            }
+        }
+    }
+
+    // 拷贝静态属性和原型
+    for (const cls of classes) {
+        copy(result, cls);
+        copy(result.prototype, cls.prototype);
+    }
+
+    return result;
+}
+
+
+// ---------- demo ----------
+
+class Jsonify {
+    toJson() {
+        const o = Object.assign(this, {toJSON: undefined});
+        return JSON.stringify(o);
+    }
+}
+
+class Yamlify {
+    toYaml() {
+        return yaml.dump(this);
+    }
+}
+
+class Text extends mix(Jsonify, Yamlify) {
+    constructor(content, option = {
+        writable: false,
+        trim: true,
+    }) {
+        super();
+        this.option = option;
+        this.content = ( option.trim ? content.trim() : content);
+    }
+}
+
+const text = new Text("This is a sentence.");
+console.log(text.toYaml());
+console.log(text.toJson());
+
+// option:
+//   writable: false
+//   trim: true
+// content: This is a sentence.
+// 
+// {"option":{"writable":false,"trim":true},"content":"This is a sentence."}
+```
 
