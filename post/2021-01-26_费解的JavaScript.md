@@ -952,6 +952,30 @@ o2.fn1();   // o2
 o2.fn2();   // window
 ```
 
+```javascript
+class Cls {
+    attrFn = () => {
+        console.log(this);
+    }
+    
+    methodFn() {
+        console.log(this);
+    }
+}
+
+let o1 = new Cls();
+let o2 = Object.assign({}, o1);
+o1.name = "o1";
+o2.name = "o2";
+
+o1.attrFn();    // o1
+o1.methodFn();  // o1
+o2.attrFn();    // o1
+o2.methodFn();  // TypeError: o2.methodFn is not a function
+```
+
+
+
 
 
 ## 经典例子
