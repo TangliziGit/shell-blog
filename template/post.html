@@ -40,6 +40,7 @@
     <div id="gitalk-container" class="content"></div>
 
     <script>
+	    window.process = { cwd: () => '' };
         const getTags = function(filename) {
             const tags = filename.match(/(?<=_\[).+(?=\])/);
             if (tags === null) return [];
