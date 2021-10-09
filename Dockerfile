@@ -6,6 +6,7 @@ RUN apk add --no-cache git fcgiwrap grep bash \
     && echo "rm /var/run/fcgiwrap.sock" >> /docker-entrypoint.d/startup.sh \
     && echo "fcgiwrap -s unix:/var/run/fcgiwrap.sock > /var/log/fcgi.log 2>&1 &" >> /docker-entrypoint.d/startup.sh \
     && echo "crond" >> /docker-entrypoint.d/startup.sh \
-    && chmod +x /docker-entrypoint.d/startup.sh 
+    && mkdir -p /tmp/nginx/cache \
+    && chmod +x /docker-entrypoint.d/startup.sh
 
 WORKDIR /blog

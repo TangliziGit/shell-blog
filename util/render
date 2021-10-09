@@ -15,8 +15,7 @@ for key in `grep -oP "(?<={{)[^}]*(?=}})" $name`; do
     key="$(printf "$key" | sed "s/\//\\\\\//g")"
     key="$(printf "$key" | sed "s/\*/\\\\*/g")"
     key="$(printf "$key" | sed -e 'H;${x;s/\n/\\n/g;s/^\\n//;p;};d')"
-    # echo "s/{{$key}}/$value/g"
-    content="$(printf "$content" | sed "s/{{$key}}/$value/g")"
+    content="$(printf "$content" | sed "s~{{$key}}~$value~g")"
 done
 unset IFS
 
