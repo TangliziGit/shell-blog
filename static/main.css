@@ -26,8 +26,8 @@ img {
 
     .markdown-nav-wrapper {
         position: fixed;
-        top: 160px;
-        right: 180px;
+        bottom: 2%;
+        right: 2%;
         width: 300px;
         z-index: 20;
     }
