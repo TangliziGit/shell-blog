@@ -12,9 +12,13 @@ elif [ ! -d "$path/$dir" ]; then
     mkdir "$path/$dir"
 fi
 
-wget -q -O "$path/$dir/$name" "$url"
-
 pathname="$path/$dir/$name"
+if [[ "$url" == http* ]]; then
+    wget -q -O "$pathname" "$url"
+else
+    cp "$url" "$pathname"
+fi
+
 ext=$(file "$pathname" --extension -b | awk -F/ '{print $1}')
 mv "$pathname" "$pathname.$ext"
 
