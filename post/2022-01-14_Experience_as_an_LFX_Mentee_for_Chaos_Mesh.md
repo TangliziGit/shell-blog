@@ -1,9 +1,3 @@
-
-
-# Experience as an LFX Mentee for Chaos Mesh
-
-![lfx-mentee-experience-banner](/static/image/2022-01-14/lfx-mentee-experience-banner.png)
-
 I am a graduate student studying software engineering at Nanjing University. My research focuses on DevOps, which has intrinsic connections with chaos engineering and observability. To get involved in the open-source community, understand Kubernetes more deeply, and experience the daily jobs around infrastructure, I applied for the CNCF LFX Mentorship in Fall 2021 to work on the [Chaos Mesh](https://github.com/chaos-mesh/chaos-mesh) project.
 
 ## Application Process
