@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-name="$1"
-url="$2"
+url="$1"
+name="$2"
 dir=$(date +%Y-%m-%d)
 path="static/image"
 
