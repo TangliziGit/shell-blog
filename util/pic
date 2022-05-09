@@ -24,3 +24,4 @@ mv "$pathname" "$pathname.$ext"
 
 echo "saved $pathname.$ext"
 echo "![$name](/$pathname.$ext)"
+echo "<img alt=\"$name\" src=\"/$pathname.$ext\" />"
