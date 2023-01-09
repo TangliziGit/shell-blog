@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Index</title>
+    <title>Reports</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/static/main.css">
 </head>
 <body>
     ##nav##
-    <h1 id="title">Pages</h1>
+    <h1 id="title">Weekly Reports</h1>
     <hr>
 
     <div id="content" class="content"></div>
@@ -32,12 +32,12 @@
             return list;
         }
 
-        let posts = `{{ls -1r page/*.html | sed "s/page//g"}}`.split('|||');
+        let posts = `{{ls -1r report/*.html | sed "s/report//g"}}`.split('|||');
 
         for (let name of posts) {
             let link = document.createElement('a');
             link.innerText = name.split('_').join(' ');
-            link.href = "/page" + name;
+            link.href = "/report" + name;
             console.log(link.href);
 
             let li = document.createElement("li");
