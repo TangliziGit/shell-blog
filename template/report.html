@@ -1,55 +1,130 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Reports</title>
+    <title>Weekly Report</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/static/main.css">
+    <link rel="stylesheet" href="/static/github-markdown.css">
+    <link rel="stylesheet" href="/static/katex.min.css">
+    <link rel="stylesheet" href="/static/texmath.css">
+    <link rel="stylesheet" href="/static/gruvbox-light.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css">
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+    <script src="https://unpkg.com/markdown-it-anchor/dist/markdownItAnchor.umd.js"></script>
+    <script src="https://unpkg.com/markdown-it-toc-done-right/dist/markdownItTocDoneRight.umd.js"></script>
+    <script src="/static/highlight.min.js"></script>
+    <script src="/static/katex.min.js"></script>
+    <script src="/static/texmath.js"></script>
+    <script src="/static/markdown-it.min.js"></script>
 </head>
 <body>
     ##nav##
-    <h1 id="title">Weekly Reports</h1>
+    <div class="markdown-nav-wrapper">
+        <div class="markdown-nav-content small-hidden" id="toc">
+            <h1 style="text-align: center"> Oops... </h1>
+            <p style="text-align: center"> There is no TOC for this article. </p>
+            <h2 style="text-align: center" id="emoji"></h2>
+        </div>
+        <div class="markdown-nav-btn" onclick="toggleToc()">
+            <font style="color: white;">T</font>
+        </div>
+    </div>
+
+    <div style="text-align: right">
+        <h1 id="title"></h1>
+        <small id="date"></small>
+    </div>
     <hr>
 
-    <div id="content" class="content"></div>
+    <article id="content" class="markdown-body content"></article>
+    <div id="gitalk-container" class="content"></div>
 
     <script>
-        let getList = function(name) {
-            let _date = name.substr(1, 4);
-            let id = '#list-' + _date;
-            let list = document.querySelector(id);
-            if (list !== null)
-                return list;
+	    window.process = { cwd: () => '' };
+        const getTags = function(filename) {
+            const tags = filename.match(/(?<=_\[).+(?=\])/);
+            if (tags === null) return [];
 
-            list = document.createElement('ol');
-            list.id = id.substr(1);
-            let details = document.createElement('details');
-            let summary = document.createElement('summary');
-            summary.innerText = _date;
-            details.appendChild(summary);
-            details.appendChild(list);
-            document.querySelector('#content').appendChild(details);
+            return tags[0].toLowerCase().split(',');
+        };
 
-            return list;
-        }
+        let filename = new URL(window.location).searchParams.get("name");
+        let split = filename.split('_');
+        let _date = split[0];
+        let name = split.slice(1).join(' ').replace(/^\[.+?\]/, "");
+        let tags = getTags(filename);
 
-        let posts = `{{ls -1r report/*.html | sed "s/report//g"}}`.split('|||');
+        document.title = "report - " + name;
+        document.querySelector('#title').innerHTML = name;
+        document.querySelector('#date').innerHTML = _date;
+        fetch("/report/" + filename).then(resp => resp.text()).then(resp => {
+            const tm = texmath.use(katex);
+            const md = window.markdownit({html: true, linkify: true, typographer: true, highlight: function (str, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                  try {
+                    return hljs.highlight(lang, str).value;
+                  } catch (__) {}
+                }
+                return '';
+              }
+            });
 
-        for (let name of posts) {
-            let link = document.createElement('a');
-            link.innerText = name.split('_').join(' ');
-            link.href = "/report" + name;
-            console.log(link.href);
+            md.use(tm, {delimiters:'dollars', macros:{"\\RR": "\\mathbb{R}"}})
+                .use(window.markdownItAnchor, { permalink: true, permalinkBefore: true, permalinkSymbol: '§' })
+                .use(window.markdownItTocDoneRight, {
+                    callback: (html, ast) => document.querySelector("#toc").innerHTML = html,
+                    listType: "ul",
+                });
 
-            let li = document.createElement("li");
-            li.appendChild(link);
+            const [toc, content] = resp.trim()
+                .replace(/^<!-- vim-markdown-toc( \w+ || )-->$/gm, "SPLITOR")
+                .split("SPLITOR")
+                .filter(x => x.length != 0);
 
-            let list = getList(name);
-            list.appendChild(li);
-        }
-
-        let details = document.querySelectorAll('details')
-        for (var i=0; i<3; i++)
-            details[i].setAttribute('open', '');
+            // console.log("content", toc, content);
+            if (content === undefined) {
+                // when there is not a toc, content will be undefined.
+                document.querySelector("#content").innerHTML = md.render(toc);
+            } else {
+                document.querySelector("#content").innerHTML = md.render(content);
+                // now TOC is generated by markdownItTocDoneRight
+                // document.querySelector("#toc").innerHTML = md.render(toc);
+            }
+        }).catch(error => {
+            console.log(error);
+        });
     </script>
+
+    <script>
+        const toc = document.querySelector("#toc");
+
+        function toggleToc() {
+            if (toc.classList.contains("small-hidden"))
+                toc.classList.remove("small-hidden");
+            else
+                toc.classList.add("small-hidden");
+        }
+
+        const emoji = document.querySelector("#emoji");
+        const emojiList = ["߹𖥦߹", "( ･-･ )", "( •́ㅿ•̀ )", "(´･×･`)", "(´-ι_-｀)", "(｡•́︿•̀｡)", "(ー_ー)!!"];
+        emoji.innerHTML = emojiList[(new Date()) % (emojiList.length)];
+    </script>
+
+    <script>
+        const gitalk = new Gitalk({
+            clientID: '372031630877aadeefd6',
+            clientSecret: '3e88d8786deee740d2eebe9726b47be61f99855e',
+            repo: 'blog-comments',
+            owner: 'TangliziGit',
+            admin: ['TangliziGit'],
+            id: filename.slice(11).slice(0, 50).replace(/^\[.+?\][_+]/, ""),
+            title: _date + " " + name,
+            body: "Ref: " + location.href,
+            labels: tags,
+            distractionFreeMode: false
+        });
+        gitalk.render('gitalk-container');
+    </script>
+
 </body>
 </html>

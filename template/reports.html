@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weekly Reports</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+    ##nav##
+    <h1 id="title">Weekly Reports</h1>
+    <hr>
+
+    <div id="content" class="content">
+        <ul id="list-top" style="margin-bottom: 30px;"></ul>
+        <hr style="border: dashed 1px"/>
+    </div>
+
+    <script>
+        const getList = function(name, tags) {
+            if (tags.includes("top"))
+                return document.querySelector("#list-top");
+
+            const _date = name.substr(1, 4);
+            const id = '#list-' + _date;
+            let list = document.querySelector(id);
+            if (list !== null) return list;
+
+            list = document.createElement('ol');
+            list.id = id.substr(1);
+
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.innerText = _date;
+            details.appendChild(summary);
+            details.appendChild(list);
+            document.querySelector('#content').appendChild(details);
+
+            return list;
+        };
+
+        const getTags = function(filename) {
+            const tags = filename.match(/(?<=_\[).+(?=\])/);
+            if (tags === null) return [];
+
+            return tags[0].toLowerCase().split(',');
+        };
+
+
+        let posts = `{{ls -1r report/*.md | sed "s/report//g"}}`.split('|||');
+
+        for (const name of posts) {
+            const tags = getTags(name);
+
+            const link = document.createElement('a');
+            link.innerText = name.split('_').join(' ');
+            link.href = "/report.sh?name=" + name.substr(1);
+
+            const li = document.createElement("li");
+            li.appendChild(link);
+
+            const list = getList(name, tags);
+            list.appendChild(li);
+        }
+
+        const details = document.querySelectorAll('details');
+        for (let i=0; i<3; i++)
+            details[i].setAttribute('open', '');
+    </script>
+</body>
+</html>
