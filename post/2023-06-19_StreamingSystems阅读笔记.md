@@ -400,6 +400,278 @@
   	- **VM优化**：StreamingEngine移出VM、调度&抢占式VM、安全强化的VM
 - [Streaming Engine: Execution Model for Highly-Scalable, Low-Latency Data Processing | by Slava Chernyak | Google Cloud - Community | Medium](https://medium.com/google-cloud/streaming-engine-execution-model-1eb2eef69a8e)
 
+
+
+# Chapter6. Streams and Tables
+
+- 本章旨在描述流和表之间的关系，并以MapReduce为例描述了流表之间的如何转换，最后从What、Where、When、How的角度分析了流表转换的原理（被作者成为流表的广义相对论）
+
+## General Theory of Stream and Table Relativity / 流表广义相对论
+
+
+- 数据处理流实现包括流、表以及在流表上运作的算子
+- **Table**：表是静态数据的容器，代表pipeline里某时刻某算子的全局数据快照，可随着时间的推移积累数据
+- **Stream**：流是动态数据的载体，传输局部数据的变化，是表的change log
+- **Operator**：算子运作在流表上，持续产出流或表形式的数据
+	- **Stream -> Stream： Nongrouping / 非分组操作**
+		- 修改流中的数据，从而产生可能不同数据量的新流
+		- 类似filter、map（或mutator）、flatMap（或exploder）等。
+	- **Stream -> Table：Grouping / 成组操作**
+		- 暂存流中的数据，产生按时间推移而改变的表
+		- 类似Windowing（按EventTime成组）、Join、聚合、list/set的accumulate、ML模型训练等
+	- **Table -> Stream：Ungrouping / 解组操作**
+		- Trigger捕捉表随时间的变化，从而产生流
+		- Watermark定义了完整性Trigger的触发时机；累积方式定义了产出流的数据内容
+
+## 执行计划
+
+- 流数据处理系统也存在着逻辑执行计划和物理执行计划。前者是用户定义的流处理行为，后者定义了如何使用引擎提供的原语贴合用户期望的行为。
+- ![image.png](../assets/image_1687145488852_0.png)
+
+# Chapter7. Persistent State
+
+- 本章内容主要讨论持久化状态为什么重要，以及讨论了两种隐式状态的算子，最后描述了Beam提出的显示状态框架的用法。
+- Q：为什么持久化状态很重要？
+  - 正确性：要实现Exactly-once，需要保证任何时间上游都有能力重发消息（即使是宕机恢复后）。
+  - 容错性：为算子提供故障恢复能力
+
+## 隐式状态
+
+- **Raw Grouping**：每当一个新元素到达该组时，它就会被附加到该组的元素列表中；即存储该窗口的所有输入，而不是每个窗口一个整数
+  
+	- 示例：[Figure 7-1: Streaming Systems Book](http://streamingsystems.net/fig/7-1)。
+		- 需要注意这里GROUP应该是[5,9] [7,3,8] [4] [3,8,1]图画错了。
+		- 见[Unconfirmed Errata - O'Reilly Media](https://www.oreilly.com/catalog/errataunconfirmed.csp?isbn=0636920073994)的第四条
+- **Incremental Combining**：Beam定义了一套满足交换律结合律的算子框架（可以认为是阿贝尔群，数学上类似加法，工程上类似函数式的Reducer），能做到压缩存储和乱序计算的目的。于是在这套框架上提出了两种用户透明的优化方式。
+  
+	- **Incrementalization / 增量化**
+		- 计算不依赖顺序，意味着不需要排序（用buffer定期排序等做法）就能计算
+		- 存储空间减少到O(1)，不需要做buffer
+		- 计算复杂度减少到O(1)，不用做O(n)的重复计算
+	- **Parallelization / 并行化**
+		- 是MapReduce的核心优化方式，即用大量节点做巨量计算
+	- 利用阿贝尔群做计算还存在一个好处：当两个窗口合并时，对于Raw Grouping，意味着将缓冲值的两个完整列表合并在一起，其成本为 O(N)。但对于CombineFn，它是两个部分聚合的简单组合，通常是 O(1) 操作
+		- 一个想法：是不是能做pull up？
+
+## 自定义状态
+
+- 大多数隐式状态缺乏**灵活性**：
+	- 自定义**状态数据结构**
+	- 自定义**读写状态粒度**：其实是自定义每个元素到来的业务逻辑，同时还可以访问某些特定状态字段。
+		- 我认为除非可以不去读取状态，否则跟直接读取所有状态是一个效率
+	- 自定义**触发时机和触发逻辑**：指自定义Trigger以及给下游发送结果的逻辑
+- 后文展示了如何通过Beam定义一个略复杂的广告归因场景，能够体现Bean自定义状态的灵活性。
+- 这里我反思一下我在ddb的算子状态框架的设计
+	- **自定义数据结构**：提供protobuf + FieldMixin来定义。用户新建一个state的话只能在protobuf里写一个类型，然后在代码里做FieldMixin。而且没法定义函数。
+	  感觉应该能从StateSpec这种设计里找到更好的方式。比如实现一个基类用于提供派生类的StateSpec的snapshot和restore方法就可以从StateStore里编码解码数据。另外考虑到需要提供optional等protobuf的描述符，应该要实现OptionalStateSpec或者提供某种OptionType `StateSpec<T, Optional>`等。
+	  最核心的两个问题是，如何在保证效率的情况下动态生成protobuf的message类型并做成员变量的绑定，并且基类的snapshot等方法可以发现子类的StateSpec成员变量。
+	- **读写粒度**：目前设计里只有Block或整个算子的粒度。我认为效率相差不大，只在做与不做的效率区别。
+	- **触发时机**：这一点我不懂了，ddb的trigger似乎就是那个函数。逻辑是遇到相同key的时候发起一次engine层面的计算。相当之简陋，还有window只能做算子层面的window。灵活性和组合性（两个窗口算子搭配在一起的逻辑就不对）都很差。
+	- 另外，Beam 做了processElement和onTimer的逻辑区分。我认为确实应该，因为前者处理哪些元素落盘，后者定义复杂的trigger。ddb由于没有复杂trigger，所以可以在processElement那里直接输出null。（但其实ddb的做法是每一条都处理，没有trigger或者说宏观上是afterCount(1)的trigger）
+	- 还有，前文提到了垃圾回收和
+
+# Chapter8. Streaming SQL
+
+- 本章是在讨论一个理想的流式SQL应该是怎么样的。
+
+## 什么是流式SQL
+
+- **关系代数**：SQL的理论依据，其核心是由一组tuple组成的“关系”。
+	- 闭包属性：对任何一个表做任意操作都会得出一个表
+	- 先前的一些流式SQL失败的原因是没有满足闭包属性。他们认为流是独立与表的存在，于是提出了许多针对流的新算子。
+- **时变关系 TVR**：融合流与SQL的关键是扩展“关系”来展示一段时间内的数据变化，称之为时变关系TVR
+	- 关系反应了数据在某时刻的内容，时变关系表示了数据在一段时间内的内容
+	- 定义时变关系能够满足：使用现有SQL大部分算子，并且满足闭包属性
+	- ![TVR](https://pic3.zhimg.com/80/v2-d1b8918895a9f8d40f7aafd2f9d7ea16_720w.webp)
+- **流与表**：表捕获了某时刻的数据，流体现了某时段的变化。
+	- 表：另外，SQL2011本身支持了所谓temporal tables（时态表），语法是`AS OF SYSTEM TIME '12:07'`
+		- ![](https://pic1.zhimg.com/80/v2-913bcb3d1bb36b6332273f412b5d52fc_720w.webp)
+	- 流：为了支持流的特性，作者给了一个特殊的关系Sys，提供额外的有关流的属性。例如`Sys.Undo`列。
+		- ![](https://pic2.zhimg.com/80/v2-b02e878aa87f22fd037dd2ace8257719_720w.webp)
+- 上述三种说法在某种程度上我认为就是渲染方式不同而已
+
+## 回顾过去：流与表
+
+- **流处理系统的视角：以流为中心**
+	- 流处理系统偏向使用流来实现pipeline，即在算子之间往往用stream连接。
+	- 表的使用往往被隐藏作为算子内部的逻辑，而且只有在被触发时才会输出流。
+	- ![](http://www.streamingbook.net/static/images/figures/stsy_0801.png)
+- **SQL系统的视角：以表为中心**
+	- SQL 历来采用表偏方法，即查询应用于表，并始终生成新表。另外，也存在隐式表的。
+	- 而内部executor之间连接方式被认为是一种隐藏的流的体现。无论是volcano模型还是vector模型。
+	- ![](http://www.streamingbook.net/static/images/figures/stsy_0804.png)
+- **Materialized View / 物化视图**：一种支持流处理的方式，通过跟踪表的演变持续保持最新视图的方式。
+	- 物化视图的一种实现方式是通过SCAN-AND-STREAM的算子，获得输入表的变更，从而产生无限流。这样能够在以表为中心的SQL系统中体现流的特性。
+	- 另一种实现方式则是当查询视图时实际做一次查询，那就与流无关了。作者在这里只是想体现流可以以视图为载体来呈现。
+	- ![2023-06-27_10-35.png](../assets/2023-06-27_10-35_1687833321737_0.png)
+	- ![](http://www.streamingbook.net/static/images/figures/stsy_0805.png)
+
+## 展望未来：Robust Streaming SQL
+
+- 我们已经看到，通过以时变关系来替换时间点关系就可以保持关系代数的闭包属性，能够达到使用所有关系运算符的目的。
+- 但仍需要在SQL上体现一套流处理系统的概念，即What、Where、When、How。
+- **流表的选择**：提供一种输出流还是表的默认选项
+	- 如果存在任意输入是流，则输出是流，其他情况则输出表。
+- **Temporal Operators / 时间运算符**：提供流处理系统中有关时间的算子
+  
+	- **Where - 窗口**：实现一些特殊的函数就可以解决
+		- ![](https://pic1.zhimg.com/80/v2-fca72c38c251e9f00d3fb66de09d1a44_720w.webp)
+	- **When - 触发器**：
+		- Per-record Trigger：默认支持的trigger，具有简单保真的特性
+		- Watermark Trigger：实现特殊的语法体现watermark超过什么数据后，以及针对什么程度的迟到数据提交
+			- ![](https://pic1.zhimg.com/80/v2-9d18de014dd227713bbfc9d4942b8bfc_720w.webp)
+		- Repeated Delay Triggers：与上面类似的实现方式，对应了原有的`UnalignedDelay(ONE_MINUTE)`
+			- ![](https://pic1.zhimg.com/80/v2-21ba1ab740c0f460842f0e5185a00d84_720w.webp)
+	- **How - 累加器**：利用`Sys.Undo`来体现撤回。针对窗口上的改变，譬如会话窗口可能会变长，这里采用的语义上的策略是直接撤销整个会话，再创建一个新的会话。
+		- ![](https://pic4.zhimg.com/80/v2-a3f7600f6998ee80420624e76f7cc357_720w.webp)
+
+# Chapter9. Streaming Joins
+
+## 背景知识
+
+- 这里介绍一下Join的种类。看似有很多种类型，但它们都是Full Outer Join的变体。ANSI SQL不包括semi和anti，它们似乎只是利用Join来设计exists表达式的。
+	- **OUTER JOIN**：保留左右表的全部行，如果左右表的某一行没有匹配，那么输出的对方保留NULL。一个例子是`L outer join R on L.id = R.id`
+	- **LEFT (OUTER) JOIN**：保留左表的全部行，如果左表某个行没有对应的右表行，那么输出的右表内容保留NULL。相当于`L outer join R on L.id = R.id and L.id != NULL`
+	- **INNER JOIN**：只输出匹配行。相当于`L outer join R on L.id = R.id and L.id != NULL and R.id != NULL`
+	- **CROSS JOIN**：笛卡尔积。相当于不设置join条件的`L outer join R`。
+	- **SEMI JOIN**：用于实现in / exists的一种join。当左表行匹配了一次或多次右表行后，只输出一次左表行。属于inner join的变体，由特殊的in或者exists表达式实现，所以没有类似的OUTER JOIN的例子。例如`where L.id in (select id from R)`
+	  id:: 649a5844-8ffa-40e5-8eca-890ec24f8bce
+	- **ANTI JOIN**：inner join的在outer join上的补集，即只保留任意一边为NULL的行，相当于`L outer join R on L.id == R.id and L.id == NULL or R.id == NULL`。主要配合semi来实现not in或者not exists
+- **所有的Join都是流**：Join只是一种特殊的分组操作
+	- 通过将某些属性的数据连接在一起，将一些先前不相关的单个数据元素收集到一组相关元素中
+
+## Unwindowed Joins
+
+- **OUTER JOIN**：左右表都要buffer下来，二者的任意一个tuple到来就遍历对方的buffer，做join做输出
+- **LEFT / INNER / ANTI JOIN**：只是在OUTER JOIN上加了一些过滤条件而已
+- **SEMI JOIN**：当一个左表行存在多个右表匹配的行时，只输出这个左表行一次（注意不输出右表行，其实多个右表行也没法输出在一个row里）。文中的基数n:m，意思是多少个不同的左表行（m）匹配多少个不同的右表行（m）
+
+## Windowed Joins
+
+- **为什么要对Join做window / window的作用是什么？**
+	- **业务要求**：例如每日账单统计。每到凌晨两点时清理join两边的表，重新开始一个周期的统计。
+	- **超时参考**：inner join要求每当匹配成功时就输出结果行，outer join则是不匹配时也输出结果行。在流处理系统里要永远记得，数据不是准时到达的，于是**很难识别数据的不存在**（相对于存在性的概念，当A不存在时不能认为真的不存在。而不是存在性，当A存在时不认为存在。有点像bloom filter）。当目前右表没有对应行时，不能认为不存在。
+	- 这两点也就是window的作用，后文也提到窗口化不是流处理的必要要求。
+- **Fixed Window**
+	- 作者提出将Join条件扩展到窗口相等性的实现方法：`Left.Num = Right.Num AND Left.Window = Right.Window`
+	- 由于判断的是各自窗口相等性，那么输出的结果也因此与没有Window的结果不同。在这个例子里，即只有两个行在一个window里才能join匹配，窗口完整性判断与结果正确性没有关系。意思是相比全局的outer join，这里的窗口化要求两个数据都在一个window里。
+	- ![](https://pic3.zhimg.com/80/v2-70916392cd4b0f13dec8588826cfa792_720w.webp)
+	- ![](https://pic2.zhimg.com/80/v2-05fe258769598d98b6a0793c28022355_720w.webp)
+	- 另外，如果上游保证两个数据会在一定期限内发生，那么fixed window有点不匹配这个场景。比如推荐系统中，一个数据流包含用户行为数据，另一个数据流包含商品数据。我要统计购买商品的前后一段时间内（前后5分钟）用户行为数据。
+	- 所以可能的实现方式是，当购买数据到达后，创建一个window。等到行为数据的watermark到达window ending时，做Goods left outer join Behaviors。这里的想法是一个流单方面做window，而且是非对齐的前后的窗口。除了单方面创建window，与前文章节不同的是，这里还要考虑前后时间间隔的window（前文用window merge实现，而这里是不同的流之间）。
+	- 最后提一下，这个在国内似乎叫双流join，指两个数据流的动态连接。另外，这个例子也体现了window能满足的两个需求。
+- **Temporal Validity Window / 时间有效性窗口**
+	- 有效性窗口必须能够随着时间的推移而缩小，从而缩小其有效性的范围，并将其中包含的任何数据拆分到两个新窗口中。
+	- 这里的意思是窗口随数据到来而拆分和变小的过程。
+	- ![](https://pic3.zhimg.com/80/v2-d12ce88006bddd086cf047d7e4ac2c4e_720w.webp)
+	- 一个时间有效性窗口和连接的例子
+		- ![](https://pic1.zhimg.com/80/v2-a5f35e5b65f534ef14be263be7c6bb68_720w.webp)
+- 一个带有watermark的时间有效性窗口的例子
+	- ![](https://pic1.zhimg.com/80/v2-d317dfa2660470dcc8e0fcc590af5f84_720w.webp)
+
+# Chapter10. The Evolution of Large-Scale Data Processing
+
+- 本章主要讲解大数据的历史：从03年的MR到现今的流处理系统
+
+- ![](http://www.streamingbook.net/static/images/figures/stsy_1034.png)
+
+- **2003 MapReduce**：简易性和可扩展性
+
+  - **起源**：Google内部有多个不同的大数据场景的解决方案。他们意识到可以提供一套框架，从而解决**扩展性**和**容错性**的挑战。
+  	- ![](http://www.streamingbook.net/static/images/figures/stsy_1003.png)
+  - **资料**：在2004年发布OSDI paper，但由于没有开源，所以大部分人就只是扩展自己的系统
+  	- [MapReduce: Simplified Data Processing on Large Clusters](https://static.googleusercontent.com/media/research.google.com/en//archive/mapreduce-osdi04.pdf)
+  - **贡献**：MR是在大规模数据处理世界中的第一个可定制的系统
+
+- **2005 Hadoop**：开辟繁荣的开源社区
+  - **起源**：Doug Cutting 和 Mike Cafarella为实现分布式网络爬虫，在NDFS（后称HDFS）上加入了MapReduce层
+  - **资料**：[The history of Hadoop. An epic story about a passionate, yet… | by Marko Bonaci | Medium](https://medium.com/@markobonaci/the-history-of-hadoop-68984a11704)
+  - **贡献**：开创了开源社区的大数据繁荣生态，产生了数十种有用的工具，如 Pig、Hive、HBase、Crunch 等等。
+
+- **2007 FlumeJava**：引入流水线和优化器
+  - **起源**：动机是解决 MapReduce 的一些固有缺陷，包括多MR过程组成pipeline过于繁杂以及效率问题
+  	- Flume 通过提供可组合的高级 API 来描述数据处理管道来解决这些问题。同时提出执行计划和优化器等概念，以实现最佳高效的 MapReduce 作业序列，然后由框架协调其执行。
+  	- ![](http://www.streamingbook.net/static/images/figures/stsy_1010.png)
+  	- 另外，优化器引出了两种最常见的优化方式：fusion和combiner lifting。
+  		- Fusion：将两个阶段融合在一起可以消除序列化/反序列化和网络成本
+  		- Combiner Lifting：可以大大减少通过网络洗牌的数据量，并且还可以将最终聚合的计算负载更平滑地分散到多台机器上
+  - **资料**：
+  	- 2009 [FlumeJava: Easy, Efficient Data-Parallel Pipelines](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/35650.pdf)
+  	- [No shard left behind: dynamic work rebalancing in Google Cloud Dataflow](https://cloud.google.com/blog/products/gcp/no-shard-left-behind-dynamic-work-rebalancing-in-google-cloud-dataflow)
+  - **贡献**：
+
+- **2011 Storm**：世界第一个真正意义上的流处理系统 - 低延迟与弱保证
+  - **起源**：Nathan在Twitter的工作中遇到类似MR的经历，发现构建一个通用系统可以处理很多流式数据场景
+  	- **降低一致性保证 & 降低时延**：通过将至多一次或至少一次语义与每条记录处理相结合，并且没有集成的（即，不一致的）持久状态概念，Storm 能够在提供结果时提供比在批量数据上执行的系统低得多的延迟，并且保证一次性正确性
+  - **资料**：
+  	- [History of Apache Storm and lessons learned - thoughts from the red planet - thoughts from the red planet](http://nathanmarz.com/blog/history-of-apache-storm-and-lessons-learned.html)
+  	- [How to beat the CAP theorem - thoughts from the red planet - thoughts from the red planet](http://nathanmarz.com/blog/how-to-beat-the-cap-theorem.html)
+  	- [[PDF] Twitter Heron: Stream Processing at Scale | Semantic Scholar](https://www.semanticscholar.org/paper/Twitter-Heron%3A-Stream-Processing-at-Scale-Kulkarni-Bhagat/e847c3ec130da57328db79a7fea794b07dbccdd9?p2df)
+  - **贡献**：Storm 负责首先为大众带来低延迟数据处理。然而这样做的代价是弱一致性，进而带来了 Lambda 架构的兴起，以及随之而来的双流水线的黑暗时代
+
+- **2009 Spark**：微批处理带来强一致性
+  - **起源**：Spark 于 2009 年左右在加州大学伯克利分校现在著名的 AMPLab 诞生。
+  	- **RDD**：Spark通常能够在内存中执行计算，直到最后才接触磁盘。这归功于RDD，该理念基本上捕获了管道中任何给定点的完整数据谱系，允许在机器故障时根据需要重新计算中间结果，前提是输入可重放，且计算是确定性的
+  	- **Spark Streaming**：将流数据作为微批，一个接一个地做批处理执行的思路。
+  		- 缺陷是1.x没有对处理时间做保证，并且会存在全局屏障
+  - **文献**：[An Architecture for Fast and General Data Processing on Large Clusters](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2014/EECS-2014-12.pdf)
+    id:: 649a9de9-e591-4d63-b3db-99097418a071
+  - **贡献**：一个具有强一致性语义的公开可用的流处理引擎，尽管仅适用于有序数据或事件时间不可知的计算
+
+- **2007 MillWheel**：乱序处理下的各种保证
+  - **起源**：Google 原创的通用流处理架构。MillWheel 项目最初并不关注正确性。 Paul 最初的愿景更紧密地瞄准了 Storm 后来所倡导的利基市场：弱一致性的低延迟数据处理。正是最初的 MillWheel 客户，一个在搜索数据上构建会话，另一个对搜索查询执行异常检测（MillWheel 论文中的 Zeitgeist 示例），推动了该项目朝着正确的方向发展。两者都强烈需要一致的结果：会话用于推断用户行为，异常检测用于推断搜索查询的趋势；如果他们提供的数据不可靠，那么他们的效用就会显着下降。因此，MillWheel 的方向转向了强一致性
+  	- **Exactly-once保证**
+  	- **持久状态**
+  	- **Watermark**：原本只是在异常检测的异常下跌实现时，用到处理时间delay来完成功能。但后续发现并不稳定，于是改用按照输入数据等指标来制作watermark，以对抗乱序提供完整性保证。
+  	- **持久化计时器**
+  - **文献**：[MillWheel: Fault-Tolerant Stream Processing at Internet Scale](http://static.googleusercontent.com/media/research.google.com/en/us/pubs/archive/41378.pdf)
+  - **贡献**：一次性、持久状态、水印、持久计时器的四个概念共同为系统提供了基础，该系统最终能够实现流处理的真正承诺：健壮、低功耗无序数据的延迟处理
+
+- **2011 Kafka**：持久化的可重放的流
+  - **起源**：为大数据场景提供了中间件：持久化可重放、弹性削峰填谷等
+  	- **可重放**：为用户提供了安全感，也为软件开发过程（原型、开发、测试）提供帮助
+  	- **流表理论**：帮助人们更广泛地了解流和表的思维方式
+  - **资料**：
+  	- [I ❤ Logs](http://web.stanford.edu/class/ee380/Abstracts/141112-slides.pdf)
+  	- [Stream Processing, CEP, Event Sourcing, and Data Streaming Explained](https://www.confluent.io/blog/making-sense-of-stream-processing/)
+  	- [Introducing Kafka Streams: Stream Processing Made Simple | Confluent](https://www.confluent.io/blog/introducing-kafka-streams-stream-processing-made-simple/)
+
+- **2013 Cloud Dataflow**：统一流批
+  - **起源**：致力于构建 MapReduce、Flume 和 MillWheel，并将它们打包成无服务器云体验
+  	- 自定义窗口化
+  	- 灵活的触发器和累加器
+  	- 融合批处理、微批处理、流处理
+  - **文献**：[The Dataflow Model: A Practical Approach to Balancing Correctness, Latency, and Cost in Massive-Scale, Unbounded, Out-of-Order Data Processing](http://www.vldb.org/pvldb/vol8/p1792-Akidau.pdf)
+
+- **2009 Flink**：高效快照
+  - **起源**：2015年进入人们的视野，成为流处理系统世界的强者之一
+  	- **编程模型**
+  	- **高效快照**：利用了Distributed Snapshots: Determining Global States of Distributed Systems的idea
+  		- 基本思想是周期性障碍沿着系统中工作人员之间的通信路径传播
+  		- 许多其他项目（特别是 Storm 和 Apex）都采用了相同类型的一致性机制
+  		- 利用快照的全局特性提供从过去任何点重新启动整个管道的能力，这一功能称为保存点
+  - **资料**：
+  	- [Extending the Yahoo! Streaming Benchmark](https://www.ververica.com/blog/extending-the-yahoo-streaming-benchmark)
+  	- https://www.ververica.com/blog/turning-back-time-savepoints
+  	- [State Management in Apache Flink](http://www.vldb.org/pvldb/vol10/p1718-carbone.pdf)
+
+- **2016 Beam**：
+  - **起源**：希望成为流数据系统世界中的SQL，一种整合多个runner的编程模型
+  	- 统一的流处理加批处理模型
+  	- 提供丰富SDK DSL
+  	- 整合执行runner
+  - **文献**：https://beam.apache.org/blog/splittable-do-fn/
+
+- ## 开源世界的大数据生态
+  - 简单对照了开源系统和G家系统
+  	- hdfs -> gfs
+  	- hadoop -> MR
+  	- spark -> FlumeJava? （但是架构完全不同）
+  	- hive: offline SQL on Hadoop，即在Hadoop上实现一层SQL到MR的转换
+  	- hbase: NoSQL OLAP on HDFS（高并发随机写 & 实时查询）一般搭配hive使用：
+  		- 海量随机查询：OLTP -> HDFS -> Hive -> HBase
+  		- 其他查询：OLTP -> HDFS -> Hive -> Xxx
+
 # Problems
 
 - 消息队列、时序数据库、流处理系统的区别？
