@@ -45,6 +45,7 @@
 - 方程(4)则是MN关于所有层FPR的关系。
 
 由上述两个方程可以通过拉格朗日乘数法找到方程(3)的最值以及pi的取值。最小的R即如下方程。
+
 $$
 R=e^{-\frac{M}{N} \cdot \ln (2)^2} \cdot \frac{T^{\frac{T}{T-1}}}{(T-1)^{\frac{T-1}{T}}}
 $$
@@ -68,6 +69,7 @@ l-leveling的设计并没有比哪一种在任何情况下更优秀。
 Fluid LSM tree 引入参数K和Z，K是指在tiering上是sorted runs的个数，Z是最后一层leveling上sorted runs的个数。
 
 这里列以下Fluid LSM tree上，各个操作的IO开销：
+
 $$
 \begin{align*}
 R&=e^{-\frac{M}{N} \cdot \ln (2)^2} \cdot Z^{\frac{T-1}{T}} \cdot K^{\frac{1}{T}} \cdot \frac{T \frac{T}{T-1}}{T-1} \\
@@ -80,6 +82,7 @@ $$
 ## Dostoevsky
 
 Dostoevsky就是在一定限制条件下，按照几个方程将这三个参数调整的最优的值。
+
 $$
 τ = \frac{1}{Ω (w · W + r · R + v · V + q · Q)}
 $$
