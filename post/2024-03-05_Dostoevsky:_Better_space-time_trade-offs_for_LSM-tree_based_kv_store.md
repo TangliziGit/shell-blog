@@ -71,12 +71,12 @@ Fluid LSM tree 引入参数K和Z，K是指在tiering上是sorted runs的个数�
 这里列以下Fluid LSM tree上，各个操作的IO开销：
 
 $$
-\begin{align*}
-R&=e^{-\frac{M}{N} \cdot \ln (2)^2} \cdot Z^{\frac{T-1}{T}} \cdot K^{\frac{1}{T}} \cdot \frac{T \frac{T}{T-1}}{T-1} \\
-V&=1+R-p_L \\
-Q&=K \cdot(L-1)+Z+\frac{1}{\mu} \cdot \frac{s}{B} \cdot\left(Z+\frac{1}{T}\right) \\
-W&=\frac{\phi}{\mu \cdot B} \cdot\left(\frac{T-1}{K+1} \cdot(L-1)+\frac{T-1}{Z+1}\right)
-\end{align*}
+\begin{matrix}
+R&=&e^{-\frac{M}{N} \cdot \ln (2)^2} \cdot Z^{\frac{T-1}{T}} \cdot K^{\frac{1}{T}} \cdot \frac{T \frac{T}{T-1}}{T-1} \\
+V&=&1+R-p_L \\
+Q&=&K \cdot(L-1)+Z+\frac{1}{\mu} \cdot \frac{s}{B} \cdot\left(Z+\frac{1}{T}\right) \\
+W&=&\frac{\phi}{\mu \cdot B} \cdot\left(\frac{T-1}{K+1} \cdot(L-1)+\frac{T-1}{Z+1}\right)
+\end{matrix}
 $$
 
 ## Dostoevsky
